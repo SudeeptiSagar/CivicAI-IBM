@@ -1,0 +1,150 @@
+# CivicAI development stack (PRD section 6.2).
+#
+#   docker compose up -d          bring up infrastructure and services
+#   docker compose run --rm migrate   apply database migrations
+#   docker compose down -v        tear down, including volumes
+#
+# Ports are published on localhost so the test suite and a local venv can talk
+# to the same services the containers use.
+
+name: civicai
+
+x-app: &app
+  build:
+    context: .
+  image: civicai-app:dev
+  environment: &app-env
+    CIVICAI_ENV: dev
+    CIVICAI_LOG_LEVEL: ${CIVICAI_LOG_LEVEL:-INFO}
+    CIVICAI_BUS_BACKEND: redis
+    CIVICAI_REDIS_URL: redis://redis:6379/0
+    CIVICAI_DATABASE_URL: postgresql://civicai:civicai@postgres:5432/civicai
+    CIVICAI_S3_ENDPOINT: http://minio:9000
+    CIVICAI_S3_BUCKET: civicai-media
+    CIVICAI_S3_ACCESS_KEY: civicai
+    CIVICAI_S3_SECRET_KEY: civicai-dev-secret
+    CIVICAI_SENTINEL_MODE: ${CIVICAI_SENTINEL_MODE:-strict}
+  volumes:
+    # Source is baked into the image; this mount is a dev convenience so a code
+    # change does not need a rebuild. Remove it for a production-shaped run.
+    - ./:/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+    image: civicai-postgres:16-postgis-pgvector
+    environment:
+      POSTGRES_USER: civicai
+      POSTGRES_PASSWORD: civicai
+      POSTGRES_DB: civicai
+    ports:
+      - "${CIVICAI_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U civicai -d civicai"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # appendonly keeps the streams across a restart; an agent that was mid-work
+    # must not lose its pending entries (PRD section 9.4).
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${CIVICAI_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    # quay.io, not Docker Hub: MinIO's docker.io/minio/minio repository is no
+    # longer publicly pullable. quay.io is the vendor's own registry.
+    image: quay.io/minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: civicai
+      MINIO_ROOT_PASSWORD: civicai-dev-secret
+    ports:
+      - "${CIVICAI_MINIO_PORT:-9000}:9000"
+      - "${CIVICAI_MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # One-shot: creates the media bucket, then exits.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 civicai civicai-dev-secret &&
+      mc mb --ignore-existing local/civicai-media &&
+      echo 'bucket ready'
+      "
+    restart: "no"
+
+  # One-shot: applies pending migrations, then exits. Run it before the agents.
+  migrate:
+    <<: *app
+    command: ["python", "-m", "db.migrate", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *app
+    command:
+      ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "${CIVICAI_API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/v1/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  # AV Sentinel subscribes to every topic and verifies every agent output
+  # (PRD section 8). It is listed before the agents it checks deliberately.
+  agent-sentinel:
+    <<: *app
+    command: ["python", "-m", "agents.av_sentinel"]
+    environment:
+      <<: *app-env
+      CIVICAI_AGENT_CONSUMER: sentinel-1
+
+  agent-echo:
+    <<: *app
+    command: ["python", "-m", "agents.echo"]
+    environment:
+      <<: *app-env
+      CIVICAI_AGENT_CONSUMER: echo-1
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

@@ -14,6 +14,35 @@ jobs:
     name: lint, types, tests
     runs-on: ubuntu-latest
 
+    services:
+      # The same stack docker-compose provides, so the integration tests
+      # actually run in CI instead of silently skipping. This is the same base
+      # image docker/postgres/Dockerfile builds from; pgvector is added in a
+      # step below, exactly as that Dockerfile does.
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: civicai
+          POSTGRES_PASSWORD: civicai
+          POSTGRES_DB: civicai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U civicai -d civicai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +65,28 @@ jobs:
       - name: Type check
         run: mypy
 
-      # P0 runs with no infrastructure: the in-memory bus stands in for Redis
-      # Streams, and nothing here touches Postgres or the object store yet.
+      - name: Install pgvector
+        # The PostGIS service image carries PostGIS but not pgvector. Installing
+        # the extension into the running container keeps CI's database identical
+        # to the one docker/postgres/Dockerfile builds for local work.
+        run: |
+          docker exec "${{ job.services.postgres.id }}" sh -c \
+            'apt-get update -qq && apt-get install -y -qq postgresql-16-pgvector'
+
       - name: Tests
-        run: pytest
+        # -p no:randomly is not in use; --strict-markers is set in pyproject.
+        # `-rs` prints the reason for every skip, so a silently-skipped
+        # integration test is visible in the log rather than hidden in a dot.
+        run: pytest -rs
+
+      - name: Confirm integration tests actually ran
+        # Integration tests skip when the services are unreachable. That is the
+        # right behaviour on a laptop, but in CI a run where they all skipped
+        # would still be green while verifying nothing. Fail loudly instead.
+        run: |
+          pytest -m integration -q | tee result.txt
+          grep -qE '[0-9]+ passed' result.txt
+          if grep -qE '[0-9]+ skipped' result.txt; then
+            echo "::error::integration tests skipped in CI - services unreachable"
+            exit 1
+          fi

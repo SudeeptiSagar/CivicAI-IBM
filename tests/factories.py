@@ -16,7 +16,7 @@ from typing import Any
 
 from common.envelope import SCHEMA_VERSION, Envelope, Producer
 from common.ids import uuid7
-from common.topics import PRODUCERS
+from common.topics import PRODUCERS, schema_family_for
 
 __all__ = ["ALL_TOPICS", "envelope_for", "payload_for", "ts", "uid"]
 
@@ -244,11 +244,27 @@ ALL_TOPICS: tuple[str, ...] = tuple(_PAYLOADS)
 
 
 def payload_for(topic: str) -> dict[str, Any]:
-    """A valid payload for `topic`."""
-    try:
-        return _PAYLOADS[topic]()
-    except KeyError:
-        raise KeyError(f"no factory for topic {topic!r}") from None
+    """A valid payload for `topic`.
+
+    Patterned topics resolve by family, the same way `common.schemas` picks
+    their schema: every `*.skipped` topic shares one payload shape, so
+    enumerating a factory per member would be busywork that drifts.
+    """
+    factory = _PAYLOADS.get(topic)
+    if factory is not None:
+        return factory()
+
+    family = schema_family_for(topic)
+    if family in _PAYLOADS:
+        return _PAYLOADS[family]()
+    if family == "skipped":
+        return _PAYLOADS["reports.understood.skipped"]()
+    if family == "quarantine":
+        return _PAYLOADS["quarantine.reports.understood"]()
+    if family == "control":
+        return _PAYLOADS["control.a2_dedup"]()
+
+    raise KeyError(f"no factory for topic {topic!r}")
 
 
 def envelope_for(topic: str, **overrides: Any) -> dict[str, Any]:

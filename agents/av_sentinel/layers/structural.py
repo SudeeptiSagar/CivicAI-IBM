@@ -35,6 +35,23 @@ CODE_UNKNOWN_CONTRACT = "unknown_contract"
 CODE_SCHEMA_VIOLATION = "schema_violation"
 
 
+#: Cap on a single failure message.
+#:
+#: jsonschema quotes the offending value in full, so a 768-float embedding of
+#: the wrong length produces a multi-kilobyte string. Left uncapped that string
+#: flows into the verdict envelope's rationale and blows the envelope's own
+#: 2000-character limit — meaning Sentinel would crash on precisely the
+#: malformed input it exists to catch. The head of the message carries the
+#: diagnosis; the tail is noise.
+MAX_REASON_LENGTH = 400
+
+
+def _truncate(message: str, limit: int = MAX_REASON_LENGTH) -> str:
+    if len(message) <= limit:
+        return message
+    return f"{message[: limit - 3]}..."
+
+
 @dataclass(frozen=True, slots=True)
 class Reason:
     """One specific thing that is wrong."""
@@ -42,6 +59,10 @@ class Reason:
     code: str
     message: str
     path: str | None = None
+
+    def __post_init__(self) -> None:
+        # frozen dataclass: assign through object.__setattr__.
+        object.__setattr__(self, "message", _truncate(self.message))
 
     def to_dict(self) -> dict[str, Any]:
         return {"code": self.code, "message": self.message, "path": self.path}
