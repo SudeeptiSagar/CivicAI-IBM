@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/reports.rejected.v1.json",
+  "title": "CivicAI reports.rejected v1",
+  "description": "Submission failed validation. PRD 7/A0. Producer: A0.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "reports.rejected"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_id",
+        "device_hash",
+        "reason_code",
+        "reason",
+        "rejected_at"
+      ],
+      "properties": {
+        "report_id": {
+          "oneOf": [
+            {
+              "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "device_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rejected_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason_code": {
+          "type": "string",
+          "enum": [
+            "invalid_media",
+            "media_too_large",
+            "outside_city_boundary",
+            "rate_limited",
+            "missing_location",
+            "malformed_request"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

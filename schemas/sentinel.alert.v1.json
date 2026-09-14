@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/sentinel.alert.v1.json",
+  "title": "CivicAI sentinel.alert v1",
+  "description": "Systemic alert raised by Sentinel L4. PRD 8.1. Producer: AV.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "sentinel.alert"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alert_id",
+        "kind",
+        "severity",
+        "detail",
+        "created_at"
+      ],
+      "properties": {
+        "alert_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "drift",
+            "canary_failure",
+            "loop_detected",
+            "meta_check_failure",
+            "quarantine_spike"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "metric": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "expected": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "sigma": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "subject_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/evidence.attached.v1.json",
+  "title": "CivicAI evidence.attached v1",
+  "description": "Non-citizen corroboration. Can never auto-close an incident. PRD 7/A7. Producer: A7.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "evidence.attached"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "incident_id",
+        "kind",
+        "verdict",
+        "confidence"
+      ],
+      "properties": {
+        "evidence_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "incident_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "cctv_sample",
+            "citizen_media",
+            "third_party_feed"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "corroborating",
+            "contradicting",
+            "unavailable"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_uri": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sampled_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

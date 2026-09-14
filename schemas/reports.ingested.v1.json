@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/reports.ingested.v1.json",
+  "title": "CivicAI reports.ingested v1",
+  "description": "Well-formed citizen report accepted by the gateway. PRD 7/A0. Producer: A0.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "reports.ingested"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_id",
+        "device_hash",
+        "created_at",
+        "location",
+        "gps_accuracy_m",
+        "media_keys",
+        "has_photo",
+        "has_audio",
+        "source"
+      ],
+      "properties": {
+        "report_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "device_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "location": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/geo_point"
+        },
+        "gps_accuracy_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ward_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "media_keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "raw_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "has_photo": {
+          "type": "boolean"
+        },
+        "has_audio": {
+          "type": "boolean"
+        },
+        "lang_hint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "pwa",
+            "api",
+            "canary"
+          ]
+        }
+      }
+    }
+  }
+}

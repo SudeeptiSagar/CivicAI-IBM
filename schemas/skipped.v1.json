@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/skipped.v1.json",
+  "title": "CivicAI skipped.* family v1",
+  "description": "Agent consumed an event but produced no business output. PRD 7 agent contract.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "payload"
+  ],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_message_id",
+        "reason_code",
+        "reason"
+      ],
+      "properties": {
+        "input_message_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

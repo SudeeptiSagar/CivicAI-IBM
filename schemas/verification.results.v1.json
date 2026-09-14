@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/verification.results.v1.json",
+  "title": "CivicAI verification.results v1",
+  "description": "One Sentinel verdict for one message. PRD 8.2 and 10. Producer: AV.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "verification.results"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict_id",
+        "message_id",
+        "trace_id",
+        "topic",
+        "agent",
+        "layer",
+        "verdict",
+        "reasons",
+        "created_at"
+      ],
+      "properties": {
+        "verdict_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "message_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "trace_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "topic": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/topic"
+        },
+        "agent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "layer": {
+          "type": "string",
+          "enum": [
+            "L1",
+            "L2",
+            "L3",
+            "L4"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "warn",
+            "fail_soft",
+            "fail_hard"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "judge_model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

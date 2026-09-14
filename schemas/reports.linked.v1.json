@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/reports.linked.v1.json",
+  "title": "CivicAI reports.linked v1",
+  "description": "Dedup decision for one report. PRD 7/A2. Producer: A2.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "reports.linked"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_id",
+        "decision",
+        "match_score",
+        "component_scores",
+        "candidates"
+      ],
+      "properties": {
+        "report_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "auto_link",
+            "candidate_link",
+            "new_incident_seed"
+          ]
+        },
+        "incident_id": {
+          "oneOf": [
+            {
+              "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "match_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "component_scores": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "spatial",
+            "temporal",
+            "semantic",
+            "visual"
+          ],
+          "properties": {
+            "spatial": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "temporal": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "semantic": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "visual": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "incident_id",
+              "score",
+              "component_scores"
+            ],
+            "properties": {
+              "incident_id": {
+                "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+              },
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "component_scores": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "spatial",
+                  "temporal",
+                  "semantic",
+                  "visual"
+                ],
+                "properties": {
+                  "spatial": {
+                    "oneOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "temporal": {
+                    "oneOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "semantic": {
+                    "oneOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visual": {
+                    "oneOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "radius_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "window_days": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

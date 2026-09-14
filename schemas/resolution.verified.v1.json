@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/resolution.verified.v1.json",
+  "title": "CivicAI resolution.verified v1",
+  "description": "Closure confirmed by citizens or a confident visual match. PRD 7/A6. Producer: A6.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "resolution.verified"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution_id",
+        "incident_id",
+        "final_status",
+        "citizen_confirmations",
+        "citizen_disputes",
+        "visual_verdict",
+        "verified_at"
+      ],
+      "properties": {
+        "resolution_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "incident_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "final_status": {
+          "const": "verified"
+        },
+        "citizen_confirmations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "citizen_disputes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "visual_verdict": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "unchanged",
+            "inconclusive"
+          ]
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

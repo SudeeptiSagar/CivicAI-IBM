@@ -1,0 +1,42 @@
+[project]
+name = "civicai"
+version = "0.1.0"
+description = "CivicAI - AI-powered Urban Complaint Intelligence & Response System"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "jsonschema>=4.23",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "types-jsonschema>=4.23",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["common*", "bus*", "agents*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["common", "bus", "agents", "tests"]

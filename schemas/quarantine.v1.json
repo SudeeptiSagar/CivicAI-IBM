@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/quarantine.v1.json",
+  "title": "CivicAI quarantine.* family v1",
+  "description": "Envelope blocked by a Sentinel fail_hard verdict, awaiting human triage. PRD 8.2.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "payload"
+  ],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "original_envelope",
+        "verdict_id",
+        "quarantined_at",
+        "reasons"
+      ],
+      "properties": {
+        "original_envelope": {
+          "type": "object"
+        },
+        "verdict_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "quarantined_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}
