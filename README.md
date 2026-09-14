@@ -6,6 +6,10 @@
 responsibilities, message contracts, data model and acceptance criteria. This
 README covers only how to work in the repo and what actually exists today.
 
+**Picking this up for the first time? Start with [`ROADMAP.md`](ROADMAP.md)** —
+what is built, what is not, what to do next, and what can be worked on in
+parallel.
+
 ---
 
 ## Status: P2 complete — M0 and M1 met
