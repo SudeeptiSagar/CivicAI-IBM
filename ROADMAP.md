@@ -153,7 +153,7 @@ reports from four devices.
 
 ### P3 — Decisioning ✅
 
-`pending commit` · on worktree branch `worktree-agent-af9d1af2a7017f207` · 13 files
+`22019ee` · on worktree branch `worktree-agent-af9d1af2a7017f207` · 14 files
 
 **PRD milestone M2 met:** every seeded incident gets an explainable priority
 score and a department. Purely deterministic arithmetic — the missing watsonx
@@ -332,7 +332,7 @@ Most credential-dependent phase.
 | P0 | M0 — Skeleton (part) | Complete | `0625ff9` |
 | P1 | M0 — Skeleton (complete) | Complete | `23db8c0` |
 | P2 | M1 — Core path | Complete | `0ba6679` |
-| P3 | M2 — Decisioning | Complete | `pending commit` |
+| P3 | M2 — Decisioning | Complete | `22019ee` |
 | P4 | M3 — Sentinel | Next | — |
 | P5 | M4 — Pattern + closure | Remaining | — |
 | P6 | M5 — Judge + evidence | Remaining | — |
