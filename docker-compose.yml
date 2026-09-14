@@ -174,6 +174,21 @@ services:
       <<: *app-env
       CIVICAI_AGENT_CONSUMER: a3-1
 
+  # P3 — Decisioning (PRD milestone M2).
+  agent-priority:
+    <<: *app
+    command: ["python", "-m", "agents.a4_priority"]
+    environment:
+      <<: *app-env
+      CIVICAI_AGENT_CONSUMER: a4-1
+
+  agent-routing:
+    <<: *app
+    command: ["python", "-m", "agents.a5_routing"]
+    environment:
+      <<: *app-env
+      CIVICAI_AGENT_CONSUMER: a5-1
+
   # M0's pipeline smoke test. Consumes reports.ingested alongside A1 and emits
   # only a *.skipped event, so it cannot interfere with the core path.
   agent-echo:
