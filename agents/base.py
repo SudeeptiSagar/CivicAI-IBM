@@ -17,6 +17,28 @@ deliberate — re-queueing it forever is exactly what the PRD's poison-pill
 protection forbids. Bus redelivery is reserved for the other failure mode, a
 process that dies mid-handler: it never acked, so the entry stays pending and
 another consumer reclaims it.
+
+## The verdict gate (P4, PRD section 8.3)
+
+Off by default (`Settings.sentinel_gate_enabled`). When on, and only when
+`persist=True` (the gate reads `verification_results`, which needs a
+database — see `common/verdict_gate.py`), every delivery is checked against
+Sentinel's verdict for it *before* `handle()` runs:
+
+* `pass`/`warn` within the deadline, or the deadline lapses in `permissive`
+  mode: `handle()` runs as normal.
+* `fail_soft`/`fail_hard` found within the deadline: this delivery is acked
+  without calling `handle()` — Sentinel has already reacted to it (a
+  producer retry or quarantine), so nothing here should also act on it.
+* `strict` mode, deadline lapses with no verdict yet: the delivery is
+  **nacked**, not acked — deferred for the next sweep rather than treated as
+  a failure of `handle()`, since `handle()` never ran. It still counts
+  toward the poison-pill budget on redelivery, so a message Sentinel never
+  verifies eventually deadletters instead of waiting forever.
+
+This is orthogonal to the retry budget below: the backoff loop retries a
+`handle()` that raised; the gate defers a `handle()` that has not been
+allowed to run yet.
 """
 
 from __future__ import annotations
@@ -28,12 +50,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from bus.base import MAX_DELIVERIES, Bus, BusMessage
+from common.config import settings
 from common.db import Json, transaction
 from common.envelope import Envelope, Producer
 from common.ids import uuid7
 from common.logging import bind_trace, get_logger
 from common.messagelog import archive
 from common.topics import skipped_topic_for
+from common.verdict_gate import GateResult, PostgresVerdictStore, VerdictGate
 
 __all__ = ["BACKOFF_SECONDS", "Agent", "AgentResult", "SkipSignal"]
 
@@ -88,6 +112,7 @@ class Agent(abc.ABC):
         consumer: str = "0",
         backoff: tuple[float, ...] = BACKOFF_SECONDS,
         persist: bool = True,
+        verdict_gate: VerdictGate | None = None,
     ) -> None:
         """
         Args:
@@ -96,12 +121,25 @@ class Agent(abc.ABC):
             backoff: retry delays. Tests pass `(0, 0, 0)` to skip the waiting.
             persist: write agent_runs, messages and idempotency rows. Disabled
                 in unit tests that have no database.
+            verdict_gate: override the gate used when
+                `Settings.sentinel_gate_enabled` is on. Tests inject a gate
+                with a fake store and no real sleeping; production takes the
+                default, built from `PostgresVerdictStore`. Ignored entirely
+                when the flag is off or `persist` is False — see the class
+                docstring's "verdict gate" section.
         """
         self.bus = bus
         self.consumer = consumer
         self.backoff = backoff
         self.persist = persist
         self._running = False
+        self._verdict_gate = verdict_gate
+        if self._verdict_gate is None and persist and settings().sentinel_gate_enabled:
+            self._verdict_gate = VerdictGate(PostgresVerdictStore())
+
+    @property
+    def gate_enabled(self) -> bool:
+        return self._verdict_gate is not None
 
     # -- what subclasses implement ----------------------------------------
 
@@ -184,6 +222,12 @@ class Agent(abc.ABC):
             self.bus.ack(message.topic, self.group, message.message_id)
             return AgentResult(handled=False, emitted=[])
 
+        gate = self._verdict_gate
+        if gate is not None:
+            gated = self._await_gate(gate, message, envelope)
+            if gated is not None:
+                return gated
+
         run_id = uuid7()
         started = time.time()
         self._record_run_start(run_id, envelope, message.delivery_count)
@@ -220,6 +264,43 @@ class Agent(abc.ABC):
         self._deadletter(message, errors)
         self.bus.ack(message.topic, self.group, message.message_id)
         return AgentResult(handled=False, emitted=[], error="; ".join(errors))
+
+    # -- the verdict gate (P4, PRD section 8.3) ----------------------------
+
+    def _await_gate(
+        self, gate: VerdictGate, message: BusMessage, envelope: Envelope
+    ) -> AgentResult | None:
+        """Consult the verdict gate. Returns a terminal result, or None to proceed.
+
+        None means `handle()` should run as normal — either the gate found
+        `pass`/`warn`, or the deadline lapsed in `permissive` mode.
+        """
+        result: GateResult = gate.await_verdict(str(envelope.message_id))
+
+        if result.decision == "proceed":
+            return None
+
+        if result.decision == "drop":
+            # Sentinel already reacted to this specific message (a producer
+            # retry for fail_soft, or quarantine for fail_hard). Acting on it
+            # here would be exactly the race the gate exists to close.
+            log.info(
+                "verdict gate dropped delivery",
+                extra={"agent": self.name, "verdict": result.verdict, "topic": message.topic},
+            )
+            self.bus.ack(message.topic, self.group, message.message_id)
+            return AgentResult(handled=False, emitted=[], error=None)
+
+        # decision == "defer": strict mode, no verdict within the deadline.
+        # Nack rather than ack: handle() never ran, so this is not a failure
+        # of it, and a message Sentinel never verifies still needs to reach
+        # the poison-pill budget eventually rather than wait forever.
+        log.info(
+            "verdict gate deferred delivery",
+            extra={"agent": self.name, "topic": message.topic, "waited_ms": result.waited_ms},
+        )
+        self.bus.nack(message.topic, self.group, message.message_id)
+        return AgentResult(handled=False, emitted=[], error="verdict_pending")
 
     # -- emitting ---------------------------------------------------------
 

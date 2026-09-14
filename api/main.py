@@ -9,6 +9,11 @@
     GET  /v1/incidents          department queue: filter + priority order
     GET  /v1/incidents/{id}     one incident's full record
 
+    GET  /v1/quarantine           blocked envelopes awaiting human triage
+    GET  /v1/quarantine/{id}      one blocked envelope's full record
+    POST /v1/quarantine/{id}/release   re-publish to its original topic
+    POST /v1/quarantine/{id}/discard   close it without re-publishing
+
 Still to come, with the agents that own the tables behind them:
 `/v1/super-incidents` and the resolve/confirm endpoints (P5). An endpoint
 whose agent does not exist would be a row insert dressed up as a decision.
@@ -137,6 +142,35 @@ class Incident(IncidentSummary):
     updated_at: dt.datetime
 
 
+class QuarantineSummary(BaseModel):
+    quarantine_id: str
+    message_id: str
+    trace_id: str
+    topic: str
+    verdict_id: str | None
+    reasons: list[dict[str, Any]]
+    status: str
+    quarantined_at: dt.datetime
+    reviewed_at: dt.datetime | None
+    reviewed_by: str | None
+
+
+class QuarantineDetail(QuarantineSummary):
+    envelope: dict[str, Any] = Field(description="The full blocked envelope, as Sentinel saw it.")
+
+
+class QuarantineReview(BaseModel):
+    reviewed_by: str = Field(description="Who is releasing or discarding this envelope.")
+    note: str | None = None
+
+
+class QuarantineReleased(BaseModel):
+    quarantine_id: str
+    status: str
+    republished_topic: str
+    republished_message_id: str
+
+
 class TopicLag(BaseModel):
     topic: str
     pending: int = Field(description="Entries claimed but not yet acked.")
@@ -158,13 +192,14 @@ class AgentsHealth(BaseModel):
     window_hours: int
     sentinel_mode: str
     sentinel_layers_active: list[str] = Field(
-        description="Verification layers actually running. Only L1 in P1."
+        description="Verification layers actually running. L1 and L2 as of P4; L3/L4 are P6."
     )
     sentinel_gate_enforced: bool = Field(
         description=(
-            "Whether consumers wait for a verdict before acting. False in P1: "
-            "Sentinel verifies alongside consumers rather than in front of them, "
-            "so the configured mode is aspirational until the gate lands in P4."
+            "Whether consumers wait for a verdict before acting "
+            "(Settings.sentinel_gate_enabled, common/verdict_gate.py). Off by "
+            "default even in P4, so this reports the actually-configured state "
+            "rather than implying the gate is always on just because it exists."
         )
     )
     quarantine_pending: int
@@ -326,6 +361,113 @@ def get_incident(incident_id: str) -> Incident:
     )
 
 
+@app.get("/v1/quarantine", response_model=list[QuarantineSummary], tags=["quarantine"])
+def list_quarantine(
+    status: str | None = "pending", topic: str | None = None, limit: int = 100
+) -> list[QuarantineSummary]:
+    """Blocked envelopes awaiting human triage (PRD section 8.2, P4).
+
+    Defaults to the `pending` queue; pass `status=` (empty string is not
+    accepted by FastAPI's query parsing for `None`, so pass `status=released`
+    or `status=discarded` explicitly) to see envelopes already reviewed.
+    """
+    rows = queries.list_quarantine(status=status, topic=topic, limit=limit)
+    return [_quarantine_summary(row) for row in rows]
+
+
+@app.get("/v1/quarantine/{quarantine_id}", response_model=QuarantineDetail, tags=["quarantine"])
+def get_quarantine(quarantine_id: str) -> QuarantineDetail:
+    """One blocked envelope's full record, including the envelope itself."""
+    row = queries.quarantine_envelope(quarantine_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no quarantined envelope {quarantine_id}")
+    return QuarantineDetail(**_quarantine_summary(row).model_dump(), envelope=row["envelope"])
+
+
+@app.post(
+    "/v1/quarantine/{quarantine_id}/release",
+    response_model=QuarantineReleased,
+    tags=["quarantine"],
+)
+def release_quarantine(quarantine_id: str, review: QuarantineReview) -> QuarantineReleased:
+    """Re-publish a blocked envelope to its original topic after human review.
+
+    The envelope re-enters the bus exactly as Sentinel first saw it — Sentinel
+    verifies it again on the way through, same as any other message, so a
+    release does not bypass verification, it only gives the envelope another
+    chance to pass (or fail again, visibly, rather than being silently forced
+    through). A human reviewer decided it is fine to try; Sentinel still has
+    the last word on whether a consumer acts on it.
+    """
+    row = queries.quarantine_envelope(quarantine_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no quarantined envelope {quarantine_id}")
+    if row["status"] != "pending":
+        raise HTTPException(
+            status_code=409, detail=f"quarantine {quarantine_id} is already {row['status']}"
+        )
+
+    envelope = row["envelope"]
+    topic = str(envelope.get("topic") or row["topic"])
+    message_id = str(envelope.get("message_id", ""))
+
+    queries.mark_quarantine_reviewed(
+        quarantine_id, status="released", reviewed_by=review.reviewed_by, note=review.note
+    )
+    make_bus().publish(topic, envelope)
+    log.info(
+        "quarantine released",
+        extra={"quarantine_id": quarantine_id, "topic": topic, "reviewed_by": review.reviewed_by},
+    )
+
+    return QuarantineReleased(
+        quarantine_id=quarantine_id,
+        status="released",
+        republished_topic=topic,
+        republished_message_id=message_id,
+    )
+
+
+@app.post(
+    "/v1/quarantine/{quarantine_id}/discard",
+    response_model=QuarantineSummary,
+    tags=["quarantine"],
+)
+def discard_quarantine(quarantine_id: str, review: QuarantineReview) -> QuarantineSummary:
+    """Close a blocked envelope without re-publishing it. Terminal, not a delete
+    — the row and its `envelope`/`reasons` stay for audit (PRD section 12's
+    trace viewer and this triage surface both read from the same table)."""
+    row = queries.quarantine_envelope(quarantine_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no quarantined envelope {quarantine_id}")
+    if row["status"] != "pending":
+        raise HTTPException(
+            status_code=409, detail=f"quarantine {quarantine_id} is already {row['status']}"
+        )
+
+    queries.mark_quarantine_reviewed(
+        quarantine_id, status="discarded", reviewed_by=review.reviewed_by, note=review.note
+    )
+    updated = queries.quarantine_envelope(quarantine_id)
+    assert updated is not None
+    return _quarantine_summary(updated)
+
+
+def _quarantine_summary(row: dict[str, Any]) -> QuarantineSummary:
+    return QuarantineSummary(
+        quarantine_id=str(row["quarantine_id"]),
+        message_id=str(row["message_id"]),
+        trace_id=str(row["trace_id"]),
+        topic=row["topic"],
+        verdict_id=str(row["verdict_id"]) if row["verdict_id"] else None,
+        reasons=list(row["reasons"] or []),
+        status=row["status"],
+        quarantined_at=row["quarantined_at"],
+        reviewed_at=row["reviewed_at"],
+        reviewed_by=row["reviewed_by"],
+    )
+
+
 def _incident_summary(row: dict[str, Any]) -> IncidentSummary:
     return IncidentSummary(
         incident_id=str(row["incident_id"]),
@@ -398,10 +540,10 @@ def agents_health(window_hours: int = 24) -> AgentsHealth:
     return AgentsHealth(
         window_hours=window_hours,
         sentinel_mode=settings().sentinel_mode,
-        # Reported honestly: only L1 runs in P1. L2/L3/L4 arrive in P4 and P6,
-        # and nothing yet blocks a consumer from acting before a verdict lands.
-        sentinel_layers_active=["L1"],
-        sentinel_gate_enforced=False,
+        # Reported honestly: L1 and L2 run as of P4; L3/L4 are P6. The gate
+        # reflects the actual flag, not merely its existence in this build.
+        sentinel_layers_active=["L1", "L2"],
+        sentinel_gate_enforced=settings().sentinel_gate_enabled,
         quarantine_pending=queries.quarantine_depth(),
         agents=agents,
         sentinel_lag=_sentinel_lag(),

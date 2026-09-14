@@ -39,14 +39,19 @@ def _scores() -> dict[str, float]:
 
 
 def _factor_breakdown() -> list[dict[str, Any]]:
-    """All six factors from PRD section 7/A4, weights summing to 1.0."""
+    """All six factors from PRD section 7/A4, weights summing to 1.0.
+
+    Values chosen so contributions sum to exactly the fixture's
+    `priority_score` (93.0) — Sentinel L2 (P4) recomputes the score from this
+    breakdown and would otherwise reject its own example fixture.
+    """
     factors = [
-        ("hazard_severity", 0.30, 0.80),
-        ("exposure", 0.20, 0.60),
+        ("hazard_severity", 0.30, 1.00),
+        ("exposure", 0.20, 0.90),
         ("vulnerable_site_proximity", 0.15, 1.00),
-        ("corroboration", 0.15, 0.55),
-        ("age_unresolved", 0.10, 0.30),
-        ("velocity", 0.10, 0.45),
+        ("corroboration", 0.15, 1.00),
+        ("age_unresolved", 0.10, 0.80),
+        ("velocity", 0.10, 0.70),
     ]
     return [
         {

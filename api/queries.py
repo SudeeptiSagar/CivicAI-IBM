@@ -1,8 +1,13 @@
-"""Read queries behind the API.
+"""Read queries behind the API, plus quarantine triage (P4).
 
-Read-only by construction: nothing in this module writes. The API surface in
-PRD section 12 that mutates (report submission, resolution claims) belongs to
-the agents that own those tables and arrives with them in P2 and P5.
+Mostly read-only by construction: the API surface in PRD section 12 that
+mutates business data (report submission, resolution claims) belongs to the
+agents that own those tables and arrives with them, in P2 and P5.
+`mark_quarantine_reviewed` is the one write here, and it is deliberately not
+one of those: `quarantine` is Sentinel's own table (PRD section 8.2), not
+business data, and marking a row reviewed is a human triage decision, not an
+agent decision — nothing here writes to `reports`, `incidents`, or any table
+an agent owns.
 """
 
 from __future__ import annotations
@@ -10,12 +15,15 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
-from common.db import connect
+from common.db import connect, transaction
 
 __all__ = [
     "agent_activity",
     "incident",
     "list_incidents",
+    "list_quarantine",
+    "mark_quarantine_reviewed",
+    "quarantine_envelope",
     "trace_messages",
     "trace_runs",
     "trace_verdicts",
@@ -207,3 +215,77 @@ def quarantine_depth() -> int:
         cur.execute("SELECT count(*) AS n FROM quarantine WHERE status = 'pending'")
         row = cur.fetchone()
         return int(row["n"]) if row else 0
+
+
+def list_quarantine(
+    *, status: str | None = "pending", topic: str | None = None, limit: int = 100
+) -> list[dict[str, Any]]:
+    """Quarantined envelopes for the triage surface (PRD section 8.2, P4).
+
+    Defaults to `pending` — the queue a human actually needs to work through —
+    but a reviewer can pass `status=None` to see the full history including
+    what has already been released or discarded.
+    """
+    clauses: list[str] = []
+    params: dict[str, Any] = {"limit": limit}
+    if status is not None:
+        clauses.append("status = %(status)s")
+        params["status"] = status
+    if topic is not None:
+        clauses.append("topic = %(topic)s")
+        params["topic"] = topic
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT quarantine_id, message_id, trace_id, topic, verdict_id,
+                   reasons, status, quarantined_at, reviewed_at, reviewed_by
+            FROM quarantine
+            {where}
+            ORDER BY quarantined_at DESC
+            LIMIT %(limit)s
+            """,
+            params,
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def mark_quarantine_reviewed(
+    quarantine_id: str, *, status: str, reviewed_by: str, note: str | None = None
+) -> None:
+    """Record a human triage decision on one quarantined envelope.
+
+    `status` is `released` or `discarded` — enforced by the same CHECK
+    constraint `db/migrations/0001_init.sql` put on the column, so an invalid
+    value fails loudly at the database rather than silently no-opping.
+    `note` is not persisted (the `quarantine` table has no column for it,
+    see `docs/data-model.md`); it is accepted so a reviewer's reasoning is at
+    least visible in the API log, not a promise of a durable audit field.
+    """
+    del note  # accepted, logged by the caller, not stored - see docstring
+    with transaction() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE quarantine
+            SET status = %s, reviewed_at = now(), reviewed_by = %s
+            WHERE quarantine_id = %s
+            """,
+            (status, reviewed_by, quarantine_id),
+        )
+
+
+def quarantine_envelope(quarantine_id: str) -> dict[str, Any] | None:
+    """One quarantined envelope's full record, envelope included, or None."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT quarantine_id, message_id, trace_id, topic, verdict_id,
+                   envelope, reasons, status, quarantined_at, reviewed_at, reviewed_by
+            FROM quarantine
+            WHERE quarantine_id = %s
+            """,
+            (quarantine_id,),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None

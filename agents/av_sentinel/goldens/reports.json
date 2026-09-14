@@ -1,0 +1,765 @@
+{
+  "_about": "Sentinel L4 golden set (PRD section 8.1, P4). Roughly 50 hand-labelled reports and 15 known duplicate clusters, replayed by scripts/evaluate.py on every deploy and compared against the recorded baseline (agents/av_sentinel/goldens/baseline.json).",
+  "_format": "Same style as data/seed/m1_reports.json: hours_ago is relative to the run start, coordinates sit inside the fixture wards. expected_cluster is null for a report that must NOT merge with anything - a false merge on one of these is exactly what the false-merge-rate metric catches. expected_category is null only for the non-English fixtures, where nothing in this build could honestly produce one (see their notes).",
+  "_language_note": "4 of the 50 reports are Kannada/Hindi, deliberately absent from data/seed/m1_reports.json because the lexical baseline (common/llm/heuristic.py) cannot classify them (PRD open question 3, ROADMAP Lane 3). They exercise the 'no ASR/vision provider, degrade honestly' path - recorded as unread with lowered confidence - not actual multilingual understanding. A real provider (Lane 4) is what would make expected_category answerable for these.",
+  "reports": [
+    {
+      "id": "pothole_ring_road_1-1",
+      "expected_cluster": "pothole_ring_road_1",
+      "expected_category": "pothole",
+      "device": "golden-device-1",
+      "hours_ago": 30,
+      "lat": 12.93405,
+      "lon": 77.60965,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Huge pothole here, cars are swerving to avoid it"
+    },
+    {
+      "id": "pothole_ring_road_1-2",
+      "expected_cluster": "pothole_ring_road_1",
+      "expected_category": "pothole",
+      "device": "golden-device-2",
+      "hours_ago": 22,
+      "lat": 12.93441,
+      "lon": 77.61046,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Deep pothole, very dangerous for two-wheelers"
+    },
+    {
+      "id": "pothole_ring_road_1-3",
+      "expected_cluster": "pothole_ring_road_1",
+      "expected_category": "pothole",
+      "device": "golden-device-3",
+      "hours_ago": 14,
+      "lat": 12.93477,
+      "lon": 77.61028,
+      "accuracy_m": 14,
+      "lang": "en",
+      "text": "Pothole still not fixed, getting worse after the rain"
+    },
+    {
+      "id": "pothole_ring_road_1-4",
+      "expected_cluster": "pothole_ring_road_1",
+      "expected_category": "pothole",
+      "device": "golden-device-4",
+      "hours_ago": 4,
+      "lat": 12.93414,
+      "lon": 77.6101,
+      "accuracy_m": 17,
+      "lang": "en",
+      "text": "Big crater in the road, nearly damaged my tyre"
+    },
+    {
+      "id": "waterlog_junction_2-1",
+      "expected_cluster": "waterlog_junction_2",
+      "expected_category": "waterlogging",
+      "device": "golden-device-5",
+      "hours_ago": 14,
+      "lat": 12.93635,
+      "lon": 77.61505,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Waterlogging here, knee deep after the rain"
+    },
+    {
+      "id": "waterlog_junction_2-2",
+      "expected_cluster": "waterlog_junction_2",
+      "expected_category": "waterlogging",
+      "device": "golden-device-6",
+      "hours_ago": 10,
+      "lat": 12.93671,
+      "lon": 77.61586,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Standing water again, cannot cross on foot"
+    },
+    {
+      "id": "waterlog_junction_2-3",
+      "expected_cluster": "waterlog_junction_2",
+      "expected_category": "waterlogging",
+      "device": "golden-device-7",
+      "hours_ago": 3,
+      "lat": 12.93707,
+      "lon": 77.61568,
+      "accuracy_m": 14,
+      "lang": "en",
+      "text": "Water accumulating badly near the junction"
+    },
+    {
+      "id": "garbage_market_3-1",
+      "expected_cluster": "garbage_market_3",
+      "expected_category": "garbage",
+      "device": "golden-device-8",
+      "hours_ago": 40,
+      "lat": 12.92775,
+      "lon": 77.62005,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Garbage not cleared for days, smells terrible"
+    },
+    {
+      "id": "garbage_market_3-2",
+      "expected_cluster": "garbage_market_3",
+      "expected_category": "garbage",
+      "device": "golden-device-9",
+      "hours_ago": 20,
+      "lat": 12.92811,
+      "lon": 77.62086,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Trash piling up, stray dogs going through it"
+    },
+    {
+      "id": "garbage_market_3-3",
+      "expected_cluster": "garbage_market_3",
+      "expected_category": "garbage",
+      "device": "golden-device-10",
+      "hours_ago": 6,
+      "lat": 12.92847,
+      "lon": 77.62068,
+      "accuracy_m": 14,
+      "lang": "en",
+      "text": "Waste dump growing, nobody has collected it"
+    },
+    {
+      "id": "streetlight_feeder_4-1",
+      "expected_cluster": "streetlight_feeder_4",
+      "expected_category": "streetlight",
+      "device": "golden-device-11",
+      "hours_ago": 18,
+      "lat": 12.94055,
+      "lon": 77.60755,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Streetlight has been out for a week, unsafe at night"
+    },
+    {
+      "id": "streetlight_feeder_4-2",
+      "expected_cluster": "streetlight_feeder_4",
+      "expected_category": "streetlight",
+      "device": "golden-device-12",
+      "hours_ago": 2,
+      "lat": 12.94091,
+      "lon": 77.60836,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Pole light flickering and now completely dead"
+    },
+    {
+      "id": "drain_overflow_5-1",
+      "expected_cluster": "drain_overflow_5",
+      "expected_category": "drain_overflow",
+      "device": "golden-device-13",
+      "hours_ago": 12,
+      "lat": 12.92955,
+      "lon": 77.62555,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Drain overflowing onto the road"
+    },
+    {
+      "id": "drain_overflow_5-2",
+      "expected_cluster": "drain_overflow_5",
+      "expected_category": "drain_overflow",
+      "device": "golden-device-14",
+      "hours_ago": 8,
+      "lat": 12.92991,
+      "lon": 77.62636,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Sewage water mixing with drain overflow here"
+    },
+    {
+      "id": "drain_overflow_5-3",
+      "expected_cluster": "drain_overflow_5",
+      "expected_category": "drain_overflow",
+      "device": "golden-device-15",
+      "hours_ago": 1,
+      "lat": 12.93027,
+      "lon": 77.62618,
+      "accuracy_m": 14,
+      "lang": "en",
+      "text": "Drain choked, water spilling onto the footpath"
+    },
+    {
+      "id": "stray_dogs_park_6-1",
+      "expected_cluster": "stray_dogs_park_6",
+      "expected_category": "stray_animals",
+      "device": "golden-device-16",
+      "hours_ago": 50,
+      "lat": 12.92455,
+      "lon": 77.61155,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Pack of stray dogs near the park entrance, chasing joggers"
+    },
+    {
+      "id": "stray_dogs_park_6-2",
+      "expected_cluster": "stray_dogs_park_6",
+      "expected_category": "stray_animals",
+      "device": "golden-device-17",
+      "hours_ago": 30,
+      "lat": 12.92491,
+      "lon": 77.61236,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Stray cattle blocking the road again"
+    },
+    {
+      "id": "road_damage_flyover_7-1",
+      "expected_cluster": "road_damage_flyover_7",
+      "expected_category": "road_damage",
+      "device": "golden-device-18",
+      "hours_ago": 26,
+      "lat": 12.93855,
+      "lon": 77.62255,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Road surface breaking apart near the flyover"
+    },
+    {
+      "id": "road_damage_flyover_7-2",
+      "expected_cluster": "road_damage_flyover_7",
+      "expected_category": "road_damage",
+      "device": "golden-device-19",
+      "hours_ago": 15,
+      "lat": 12.93891,
+      "lon": 77.62336,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Cracked asphalt, getting wider every week"
+    },
+    {
+      "id": "road_damage_flyover_7-3",
+      "expected_cluster": "road_damage_flyover_7",
+      "expected_category": "road_damage",
+      "device": "golden-device-20",
+      "hours_ago": 5,
+      "lat": 12.93927,
+      "lon": 77.62318,
+      "accuracy_m": 14,
+      "lang": "en",
+      "text": "Road damage from the construction work nearby"
+    },
+    {
+      "id": "sewage_smell_8-1",
+      "expected_cluster": "sewage_smell_8",
+      "expected_category": "sewage",
+      "device": "golden-device-21",
+      "hours_ago": 9,
+      "lat": 12.93155,
+      "lon": 77.60355,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Sewage smell very strong near the corner shop"
+    },
+    {
+      "id": "sewage_smell_8-2",
+      "expected_cluster": "sewage_smell_8",
+      "expected_category": "sewage",
+      "device": "golden-device-22",
+      "hours_ago": 2,
+      "lat": 12.93191,
+      "lon": 77.60436,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Open sewage line, health hazard"
+    },
+    {
+      "id": "pothole_school_9-1",
+      "expected_cluster": "pothole_school_9",
+      "expected_category": "pothole",
+      "device": "golden-device-23",
+      "hours_ago": 36,
+      "lat": 12.92655,
+      "lon": 77.61755,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Huge pothole here, cars are swerving to avoid it"
+    },
+    {
+      "id": "pothole_school_9-2",
+      "expected_cluster": "pothole_school_9",
+      "expected_category": "pothole",
+      "device": "golden-device-24",
+      "hours_ago": 24,
+      "lat": 12.92691,
+      "lon": 77.61836,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Deep pothole, very dangerous for two-wheelers"
+    },
+    {
+      "id": "pothole_school_9-3",
+      "expected_cluster": "pothole_school_9",
+      "expected_category": "pothole",
+      "device": "golden-device-25",
+      "hours_ago": 9,
+      "lat": 12.92727,
+      "lon": 77.61818,
+      "accuracy_m": 14,
+      "lang": "en",
+      "text": "Pothole still not fixed, getting worse after the rain"
+    },
+    {
+      "id": "water_supply_leak_10-1",
+      "expected_cluster": "water_supply_leak_10",
+      "expected_category": "water_supply",
+      "device": "golden-device-26",
+      "hours_ago": 17,
+      "lat": 12.94355,
+      "lon": 77.61455,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Water pipe leaking onto the road for two days"
+    },
+    {
+      "id": "water_supply_leak_10-2",
+      "expected_cluster": "water_supply_leak_10",
+      "expected_category": "water_supply",
+      "device": "golden-device-27",
+      "hours_ago": 4,
+      "lat": 12.94391,
+      "lon": 77.61536,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "No water supply since yesterday, pipe seems burst"
+    },
+    {
+      "id": "tree_hazard_avenue_11-1",
+      "expected_cluster": "tree_hazard_avenue_11",
+      "expected_category": "tree_hazard",
+      "device": "golden-device-28",
+      "hours_ago": 6,
+      "lat": 12.91955,
+      "lon": 77.60855,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Large branch hanging dangerously over the road"
+    },
+    {
+      "id": "tree_hazard_avenue_11-2",
+      "expected_cluster": "tree_hazard_avenue_11",
+      "expected_category": "tree_hazard",
+      "device": "golden-device-29",
+      "hours_ago": 1,
+      "lat": 12.91991,
+      "lon": 77.60936,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Tree leaning after the storm, could fall any time"
+    },
+    {
+      "id": "garbage_layout_12-1",
+      "expected_cluster": "garbage_layout_12",
+      "expected_category": "garbage",
+      "device": "golden-device-30",
+      "hours_ago": 44,
+      "lat": 12.93505,
+      "lon": 77.62955,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Garbage not cleared for days, smells terrible"
+    },
+    {
+      "id": "garbage_layout_12-2",
+      "expected_cluster": "garbage_layout_12",
+      "expected_category": "garbage",
+      "device": "golden-device-31",
+      "hours_ago": 28,
+      "lat": 12.93541,
+      "lon": 77.63036,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Trash piling up, stray dogs going through it"
+    },
+    {
+      "id": "garbage_layout_12-3",
+      "expected_cluster": "garbage_layout_12",
+      "expected_category": "garbage",
+      "device": "golden-device-32",
+      "hours_ago": 12,
+      "lat": 12.93577,
+      "lon": 77.63018,
+      "accuracy_m": 14,
+      "lang": "en",
+      "text": "Waste dump growing, nobody has collected it"
+    },
+    {
+      "id": "traffic_obstruction_13-1",
+      "expected_cluster": "traffic_obstruction_13",
+      "expected_category": "traffic_obstruction",
+      "device": "golden-device-33",
+      "hours_ago": 11,
+      "lat": 12.94255,
+      "lon": 77.62555,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Vehicle parked blocking half the road"
+    },
+    {
+      "id": "traffic_obstruction_13-2",
+      "expected_cluster": "traffic_obstruction_13",
+      "expected_category": "traffic_obstruction",
+      "device": "golden-device-34",
+      "hours_ago": 3,
+      "lat": 12.94291,
+      "lon": 77.62636,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Construction materials dumped, blocking traffic"
+    },
+    {
+      "id": "encroachment_footpath_14-1",
+      "expected_cluster": "encroachment_footpath_14",
+      "expected_category": "encroachment",
+      "device": "golden-device-35",
+      "hours_ago": 21,
+      "lat": 12.92555,
+      "lon": 77.60355,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Footpath fully encroached by vendor stalls"
+    },
+    {
+      "id": "encroachment_footpath_14-2",
+      "expected_cluster": "encroachment_footpath_14",
+      "expected_category": "encroachment",
+      "device": "golden-device-36",
+      "hours_ago": 7,
+      "lat": 12.92591,
+      "lon": 77.60436,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Shop extension has taken over the walking path"
+    },
+    {
+      "id": "public_toilet_15-1",
+      "expected_cluster": "public_toilet_15",
+      "expected_category": "public_toilet",
+      "device": "golden-device-37",
+      "hours_ago": 33,
+      "lat": 12.93055,
+      "lon": 77.62055,
+      "accuracy_m": 8,
+      "lang": "en",
+      "text": "Public toilet locked and unusable for weeks"
+    },
+    {
+      "id": "public_toilet_15-2",
+      "expected_cluster": "public_toilet_15",
+      "expected_category": "public_toilet",
+      "device": "golden-device-38",
+      "hours_ago": 15,
+      "lat": 12.93091,
+      "lon": 77.62136,
+      "accuracy_m": 11,
+      "lang": "en",
+      "text": "Public toilet overflowing, no maintenance"
+    },
+    {
+      "id": "singleton-1",
+      "expected_cluster": null,
+      "expected_category": "pothole",
+      "device": "golden-device-39",
+      "hours_ago": 5,
+      "lat": 12.93459,
+      "lon": 77.61037,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "Isolated small pothole near the bus stop, freshly formed"
+    },
+    {
+      "id": "singleton-2",
+      "expected_cluster": null,
+      "expected_category": "waterlogging",
+      "device": "golden-device-40",
+      "hours_ago": 8,
+      "lat": 12.93725,
+      "lon": 77.61559,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "Minor waterlogging near a side gate, not the main junction"
+    },
+    {
+      "id": "singleton-3",
+      "expected_cluster": null,
+      "expected_category": "garbage",
+      "device": "golden-device-41",
+      "hours_ago": 11,
+      "lat": 12.92802,
+      "lon": 77.62041,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "Small litter pile near a different street corner"
+    },
+    {
+      "id": "singleton-4",
+      "expected_cluster": null,
+      "expected_category": "streetlight",
+      "device": "golden-device-42",
+      "hours_ago": 14,
+      "lat": 12.94118,
+      "lon": 77.60773,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "One streetlight out on an unrelated side street"
+    },
+    {
+      "id": "singleton-5",
+      "expected_cluster": null,
+      "expected_category": "road_damage",
+      "device": "golden-device-43",
+      "hours_ago": 17,
+      "lat": 12.92955,
+      "lon": 77.62555,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "Cracked kerb stone, unrelated to the flyover damage"
+    },
+    {
+      "id": "singleton-6",
+      "expected_cluster": null,
+      "expected_category": "public_toilet",
+      "device": "golden-device-44",
+      "hours_ago": 20,
+      "lat": 12.92491,
+      "lon": 77.61236,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "A different public toilet, out of soap and water"
+    },
+    {
+      "id": "singleton-7",
+      "expected_cluster": null,
+      "expected_category": "tree_hazard",
+      "device": "golden-device-45",
+      "hours_ago": 23,
+      "lat": 12.93927,
+      "lon": 77.62318,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "A different fallen branch, unrelated street"
+    },
+    {
+      "id": "singleton-8",
+      "expected_cluster": null,
+      "expected_category": "encroachment",
+      "device": "golden-device-46",
+      "hours_ago": 26,
+      "lat": 12.93164,
+      "lon": 77.604,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "A different footpath encroachment, opposite side of town"
+    },
+    {
+      "id": "singleton-9",
+      "expected_cluster": null,
+      "expected_category": "water_supply",
+      "device": "golden-device-47",
+      "hours_ago": 29,
+      "lat": 12.927,
+      "lon": 77.61782,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "A separate water pipe leak, far from cluster 10"
+    },
+    {
+      "id": "singleton-10",
+      "expected_cluster": null,
+      "expected_category": "other",
+      "device": "golden-device-48",
+      "hours_ago": 32,
+      "lat": 12.94436,
+      "lon": 77.61464,
+      "accuracy_m": 10,
+      "lang": "en",
+      "text": "Report of an unclear civic issue, does not fit a category cleanly"
+    },
+    {
+      "id": "non-english-1",
+      "expected_cluster": null,
+      "expected_category": null,
+      "device": "golden-device-49",
+      "hours_ago": 6,
+      "lat": 12.92664,
+      "lon": 77.618,
+      "accuracy_m": 12,
+      "lang": "kn",
+      "text": "ಈ ರಸ್ತೆಯಲ್ಲಿ ದೊಡ್ಡ ಗುಂಡಿ ಇದೆ, ತುಂಬಾ ಅಪಾಯಕಾರಿ",
+      "note": "degrade-honestly fixture: baseline has no non-English vocabulary (PRD open question 3)"
+    },
+    {
+      "id": "non-english-2",
+      "expected_cluster": null,
+      "expected_category": null,
+      "device": "golden-device-50",
+      "hours_ago": 8,
+      "lat": 12.944,
+      "lon": 77.61482,
+      "accuracy_m": 12,
+      "lang": "kn",
+      "text": "ಕಸ ಸಂಗ್ರಹಿಸಿಲ್ಲ, ವಾಸನೆ ಬರುತ್ತಿದೆ",
+      "note": "degrade-honestly fixture: baseline has no non-English vocabulary (PRD open question 3)"
+    },
+    {
+      "id": "non-english-3",
+      "expected_cluster": null,
+      "expected_category": null,
+      "device": "golden-device-51",
+      "hours_ago": 10,
+      "lat": 12.92036,
+      "lon": 77.60864,
+      "accuracy_m": 12,
+      "lang": "hi",
+      "text": "यहाँ पानी भर गया है, बहुत परेशानी हो रही है",
+      "note": "degrade-honestly fixture: baseline has no non-English vocabulary (PRD open question 3)"
+    },
+    {
+      "id": "non-english-4",
+      "expected_cluster": null,
+      "expected_category": null,
+      "device": "golden-device-52",
+      "hours_ago": 12,
+      "lat": 12.93523,
+      "lon": 77.63045,
+      "accuracy_m": 12,
+      "lang": "hi",
+      "text": "स्ट्रीट लाइट कई दिनों से बंद है",
+      "note": "degrade-honestly fixture: baseline has no non-English vocabulary (PRD open question 3)"
+    }
+  ],
+  "duplicate_clusters": [
+    {
+      "cluster_id": "pothole_ring_road_1",
+      "category": "pothole",
+      "member_ids": [
+        "pothole_ring_road_1-1",
+        "pothole_ring_road_1-2",
+        "pothole_ring_road_1-3",
+        "pothole_ring_road_1-4"
+      ]
+    },
+    {
+      "cluster_id": "waterlog_junction_2",
+      "category": "waterlogging",
+      "member_ids": [
+        "waterlog_junction_2-1",
+        "waterlog_junction_2-2",
+        "waterlog_junction_2-3"
+      ]
+    },
+    {
+      "cluster_id": "garbage_market_3",
+      "category": "garbage",
+      "member_ids": [
+        "garbage_market_3-1",
+        "garbage_market_3-2",
+        "garbage_market_3-3"
+      ]
+    },
+    {
+      "cluster_id": "streetlight_feeder_4",
+      "category": "streetlight",
+      "member_ids": [
+        "streetlight_feeder_4-1",
+        "streetlight_feeder_4-2"
+      ]
+    },
+    {
+      "cluster_id": "drain_overflow_5",
+      "category": "drain_overflow",
+      "member_ids": [
+        "drain_overflow_5-1",
+        "drain_overflow_5-2",
+        "drain_overflow_5-3"
+      ]
+    },
+    {
+      "cluster_id": "stray_dogs_park_6",
+      "category": "stray_animals",
+      "member_ids": [
+        "stray_dogs_park_6-1",
+        "stray_dogs_park_6-2"
+      ]
+    },
+    {
+      "cluster_id": "road_damage_flyover_7",
+      "category": "road_damage",
+      "member_ids": [
+        "road_damage_flyover_7-1",
+        "road_damage_flyover_7-2",
+        "road_damage_flyover_7-3"
+      ]
+    },
+    {
+      "cluster_id": "sewage_smell_8",
+      "category": "sewage",
+      "member_ids": [
+        "sewage_smell_8-1",
+        "sewage_smell_8-2"
+      ]
+    },
+    {
+      "cluster_id": "pothole_school_9",
+      "category": "pothole",
+      "member_ids": [
+        "pothole_school_9-1",
+        "pothole_school_9-2",
+        "pothole_school_9-3"
+      ]
+    },
+    {
+      "cluster_id": "water_supply_leak_10",
+      "category": "water_supply",
+      "member_ids": [
+        "water_supply_leak_10-1",
+        "water_supply_leak_10-2"
+      ]
+    },
+    {
+      "cluster_id": "tree_hazard_avenue_11",
+      "category": "tree_hazard",
+      "member_ids": [
+        "tree_hazard_avenue_11-1",
+        "tree_hazard_avenue_11-2"
+      ]
+    },
+    {
+      "cluster_id": "garbage_layout_12",
+      "category": "garbage",
+      "member_ids": [
+        "garbage_layout_12-1",
+        "garbage_layout_12-2",
+        "garbage_layout_12-3"
+      ]
+    },
+    {
+      "cluster_id": "traffic_obstruction_13",
+      "category": "traffic_obstruction",
+      "member_ids": [
+        "traffic_obstruction_13-1",
+        "traffic_obstruction_13-2"
+      ]
+    },
+    {
+      "cluster_id": "encroachment_footpath_14",
+      "category": "encroachment",
+      "member_ids": [
+        "encroachment_footpath_14-1",
+        "encroachment_footpath_14-2"
+      ]
+    },
+    {
+      "cluster_id": "public_toilet_15",
+      "category": "public_toilet",
+      "member_ids": [
+        "public_toilet_15-1",
+        "public_toilet_15-2"
+      ]
+    }
+  ]
+}

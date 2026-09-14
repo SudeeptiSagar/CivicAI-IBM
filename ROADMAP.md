@@ -1,7 +1,7 @@
 # CivicAI — Roadmap and handover
 
 **Status as of 14 September 2026.** Written as a handover: if you are picking this
-up cold, read [Start here](#start-here) first, then [What is next](#p4--sentinel-hardening--next-up).
+up cold, read [Start here](#start-here) first, then [What is next](#p5--pattern-detection-and-closure--next-up).
 
 [`PRD.md`](PRD.md) remains the source of truth for requirements. This document
 records only what has actually been built, what has not, and what to do next.
@@ -12,16 +12,16 @@ records only what has actually been built, what has not, and what to do next.
 
 | | |
 |---|---|
-| Phases complete | **4 of 8** (P0, P1, P2, P3) |
-| PRD milestones met | **M0**, **M1** and **M2** |
+| Phases complete | **5 of 8** (P0, P1, P2, P3, P4) |
+| PRD milestones met | **M0**, **M1**, **M2** and **M3** |
 | Agents built | **7 of 8** — A0, A1, A2, A3, A4, A5, AV Sentinel |
-| Tests | **427 passing** (142 skipped when the stack is down) |
-| Next phase | **P4 — Sentinel hardening** |
-| Biggest blocker | No IBM watsonx credentials (PRD open question 2) — does not block P4 |
+| Tests | **497 passing** (150 skipped when the stack is down) |
+| Next phase | **P5 — Pattern detection and closure** |
+| Biggest blocker | No IBM watsonx credentials (PRD open question 2) — does not block P5 |
 
 ```
-P0 ✅  P1 ✅  P2 ✅  P3 ✅  │  P4 ⏭  P5 ⬜  P6 ⬜  P7 ⬜
-contracts  infra  core  decide  │  sentinel  pattern  judge  demo
+P0 ✅  P1 ✅  P2 ✅  P3 ✅  P4 ✅  │  P5 ⏭  P6 ⬜  P7 ⬜
+contracts  infra  core  decide  sentinel  │  pattern  judge  demo
 ```
 
 ---
@@ -201,12 +201,76 @@ credentials do not block this phase, and nothing here calls a model.
   `incidents.routed` is always `null` — `ward_id` is the real jurisdiction
   signal this phase has.
 
+### P4 — Sentinel hardening ✅
+
+**PRD milestone M3 met:** L2 invariants run alongside L1, consumers can wait
+for a Sentinel verdict before acting, and a golden-set regression gate is
+wired into CI. Builds on `agents/base.py`, `agents/av_sentinel/`, `api/`.
+
+- **L2 invariants** (`agents/av_sentinel/layers/invariants.py`,
+  `agents/av_sentinel/rules/{a0,a1,a2,a3,a4,a5}.py`) — the PRD §8.1 table for
+  A0 through A5. Every self-contained invariant (weights summing to 1.0, the
+  life-safety floor, `report_count` matching its members, the A2
+  decision/`match_score` agreement, category taxonomy, embedding shape) runs
+  unconditionally; the ones that need state beyond one envelope (location
+  inside the city polygon, `report_id` uniqueness, incident membership, ward
+  registry) run only with a database and are skipped, not guessed at,
+  otherwise. **A6 and A7 rows are explicitly not covered** — those agents
+  don't exist yet.
+- **The verdict gate** (`common/verdict_gate.py`) — `strict` / `permissive` /
+  `shadow` modes, the 2-second deadline, polling `verification_results`
+  directly rather than a second bus subscription (works identically against
+  `bus/memory.py` and `bus/redis.py` for free). **Off by default**
+  (`Settings.sentinel_gate_enabled`) and only built when an agent has
+  `persist=True`, so no existing behaviour changed unless the flag is turned
+  on. This closes caveat 3 below — see its full rewrite.
+- **`fail_soft`** — Sentinel clears the producing agent's idempotency record
+  and republishes the message that caused a soft-invariant failure, with the
+  reason appended to `rationale`. One retry only, tracked in
+  `sentinel_fail_soft_retries` (migration `0004`); a second failure escalates
+  to quarantine.
+- **`agents/av_sentinel/goldens/`** — 52 hand-labelled reports, 15 known
+  duplicate clusters, including 4 Kannada/Hindi fixtures that exercise the
+  "no ASR/vision provider, degrade honestly" path (PRD open question 3), not
+  real multilingual understanding.
+- **`scripts/evaluate.py`**, wired into `.github/workflows/ci.yml` — a
+  meta-check (every known-bad fixture from `tests/test_structural.py` must
+  still fail L1: the literal acceptance criterion, "a deliberately broken
+  agent build is blocked by CI") plus a golden-set replay compared against
+  `agents/av_sentinel/goldens/baseline.json`. It is an **offline replay** of
+  `common.matching`'s scoring formula, not a run through the deployed agents.
+- **Quarantine triage** (`api/main.py`, `api/queries.py`) — `GET
+  /v1/quarantine`, `GET /v1/quarantine/{id}`, `POST
+  /v1/quarantine/{id}/release` (re-publishes to the original topic, which
+  runs it through Sentinel again), `POST /v1/quarantine/{id}/discard`.
+- **`db/migrations/0004_sentinel_hardening.sql`** — `sentinel_fail_soft_retries`
+  only; `verification_results` and `quarantine` already existed.
+
+**Honest caveats specific to this phase**, also recorded in the code:
+
+- The verdict gate's `strict` deadline is enforced by **polling Postgres**,
+  not by subscribing to Redis Streams' consumer-group semantics for
+  `verification.results` directly. `common/verdict_gate.py`'s module
+  docstring explains the trade-off and why it was chosen; it has not been
+  load-tested.
+- `scripts/evaluate.py`'s golden replay measured `dedup_recall: 0.0` on this
+  set with the lexical baseline — not "below target", exactly zero. Every
+  genuine duplicate's semantic score lands in the documented grey zone and
+  never clears the auto-link threshold. This is the existing caveat 1 below,
+  now measured rather than described; it is not a P4 regression.
+- The quarantine-integration and DB-gated L2 invariant tests
+  (`tests/test_quarantine_triage.py`, the DB-gated cases in
+  `agents/av_sentinel/rules/`) are integration tests that could not be run
+  against a live Postgres/Redis in this environment (no Docker daemon
+  available) — they are wired to skip honestly rather than pass silently, and
+  will run for real in CI, which provisions both services.
+
 ---
 
 ## Things that are true of this build
 
-Three caveats a reader could otherwise mistake. All three are recorded in the
-code and in `docs/`, not only here.
+Two caveats a reader could otherwise mistake. Both are recorded in the code
+and in `docs/`, not only here.
 
 ### 1. The reasoning provider is not a model
 
@@ -237,38 +301,17 @@ This is an open PII gap, not an oversight. Treat it as a blocker for any
 deployment handling real citizen photographs.
 [`docs/media-handling.md`](docs/media-handling.md).
 
-### 3. Sentinel verifies alongside consumers, not in front of them
-
-PRD §8 calls for downstream agents to act only on events carrying a valid
-verdict. Today Sentinel and each agent hold independent consumer groups on the
-same topic, so an agent can begin work on a message Sentinel is about to
-quarantine.
-
-`/v1/health/agents` reports this honestly as `sentinel_gate_enforced: false`
-rather than letting the configured mode imply a guarantee. Closing it is P4.
-[`docs/sentinel.md`](docs/sentinel.md).
+Caveat 3 ("Sentinel verifies alongside consumers, not in front of them") is
+resolved as of P4 — see that phase's entry above and
+[`docs/sentinel.md`](docs/sentinel.md) for the gate's real behaviour and its
+one honest limitation (Postgres polling, not a Redis Streams subscription, is
+what enforces the deadline).
 
 ---
 
 ## Remaining phases
 
-### P4 — Sentinel hardening — NEXT UP
-
-**PRD milestone M3.** Acceptance: a deliberately broken agent build is blocked by CI.
-
-- `layers/invariants.py` — L2 business rules, the full per-agent table from PRD §8.1
-- `rules/` — per-agent invariant definitions (A0 through A7)
-- **The verdict gate** — consumers wait for a verdict before acting, with the
-  strict / permissive / shadow modes and the 2-second deadline from PRD §8.3.
-  This closes caveat 3 above.
-- `fail_soft` — return the event to the producing agent for one retry with the
-  failure reason appended
-- `goldens/` — roughly 50 hand-labelled reports and 15 known duplicate clusters
-- CI regression gate — replay the goldens on every deploy, block on regression
-  against the recorded baseline
-- Quarantine triage — a surface for reviewing and releasing blocked envelopes
-
-### P5 — Pattern detection and closure
+### P5 — Pattern detection and closure — NEXT UP
 
 **PRD milestone M4.** Acceptance: the drainage SuperIncident appears; one
 incident is closed and verified end to end.
@@ -333,8 +376,8 @@ Most credential-dependent phase.
 | P1 | M0 — Skeleton (complete) | Complete | `23db8c0` |
 | P2 | M1 — Core path | Complete | `0ba6679` |
 | P3 | M2 — Decisioning | Complete | `22019ee` |
-| P4 | M3 — Sentinel | Next | — |
-| P5 | M4 — Pattern + closure | Remaining | — |
+| P4 | M3 — Sentinel | Complete | (this branch) |
+| P5 | M4 — Pattern + closure | Next | — |
 | P6 | M5 — Judge + evidence | Remaining | — |
 | P7 | M6 — Demo polish | Remaining | — |
 
@@ -342,8 +385,10 @@ Most credential-dependent phase.
 
 ## Work that can run in parallel
 
-Five lanes that do not touch the files P4 will change. Each names the paths it
-owns, so two people can work without stepping on each other.
+Five lanes that do not touch the files P5 will change. Each names the paths it
+owns, so two people can work without stepping on each other. Lanes 2 and 3
+are done (folded into P4); left in place rather than deleted so the "what was
+this lane, why did it exist" context isn't lost.
 
 ### Lane 1 — Citizen PWA and dashboards
 **Owns:** `web/citizen/`, `web/dashboard/`
@@ -355,27 +400,20 @@ endpoints that are already live, including `GET /v1/incidents` and
 
 *No conflict with any Python work. Can start immediately.*
 
-### Lane 2 — Sentinel L2 invariants
-**Owns:** `agents/av_sentinel/layers/invariants.py`, `agents/av_sentinel/rules/`
+### Lane 2 — Sentinel L2 invariants ✅
+**Owned:** `agents/av_sentinel/layers/invariants.py`, `agents/av_sentinel/rules/`
 
-The A0–A3 invariants from PRD §8.1 can be written now: those agents exist and
-their contracts are frozen. Work rule-by-rule against the schemas rather than
-the agents, and the A4–A7 rules drop in later without rework.
+Done in P4. See that phase's entry above.
 
-*Coordinate: the verdict gate touches `agents/base.py` — leave that to the P4 owner.*
+### Lane 3 — Golden set and eval harness ✅
+**Owned:** `agents/av_sentinel/goldens/`, `scripts/evaluate.py`
 
-### Lane 3 — Golden set and eval harness
-**Owns:** `data/goldens/`, `scripts/evaluate.py`
-
-Roughly 50 labelled reports and 15 known duplicate clusters, plus a scorer for
-the PRD §14 metrics: dedup recall, false-merge rate, routing accuracy,
-compression ratio. P4 needs this, and it is the only honest way to measure
-whether a real model beats the current lexical baseline.
-
-**Include Kannada and Hindi reports** — the current fixture deliberately has
-none, because the baseline cannot classify them (PRD open question 3).
-
-*No conflict. Can start immediately.*
+Done in P4 (the golden set lives under `agents/av_sentinel/`, not
+`data/goldens/` as this lane originally said — see
+`agents/av_sentinel/goldens/README.md` for why). Includes 4 Kannada/Hindi
+fixtures as planned. Routing accuracy is not in `scripts/evaluate.py`'s
+metrics — no routed-incident ground truth exists in the golden set yet;
+worth adding alongside A5-focused fixtures later.
 
 ### Lane 4 — The watsonx provider
 **Owns:** `common/llm/watsonx.py`
@@ -402,9 +440,9 @@ question 1 belongs here.
 
 | Hazard | Why it bites | How to avoid it |
 |---|---|---|
-| `db/migrations/` | Two people both write the same numbered file; the runner's checksum guard rejects the loser | Claim the next number before writing the file. P3 used `0003`. **P4 owns `0004`.** |
-| `api/main.py` | One module holds every route; P3 added `/v1/incidents`, P5 will add more | Split into `api/routes/` before two people touch it, or sequence the edits |
-| `agents/base.py` | P4's verdict gate changes the handler path every agent runs through | Land the gate on its own branch and rebase agent work onto it |
+| `db/migrations/` | Two people both write the same numbered file; the runner's checksum guard rejects the loser | Claim the next number before writing the file. P4 used `0004`. **P5 owns `0005`.** |
+| `api/main.py` | One module holds every route; P3 added `/v1/incidents`, P4 added `/v1/quarantine`, P5 will add more | Split into `api/routes/` before two people touch it, or sequence the edits |
+| `agents/base.py` | P4's verdict gate (`common/verdict_gate.py`) changes the handler path every agent runs through, behind `Settings.sentinel_gate_enabled` (default off) | Already landed; a future change to the gate itself should still get its own branch, rebased in |
 | `common/topics.py` + `schemas/` | A new topic needs a registry entry, a schema and a factory; tests fail on any one missing | All three in one commit. The README's "Adding a topic" section is the checklist. |
 | `docker-compose.yml` | Every phase appends agent services to the same file | Append only, one service block per agent; conflicts stay trivial |
 
@@ -414,8 +452,9 @@ question 1 belongs here.
 
 | Gap | Impact | Closes in |
 |---|---|---|
-| Sentinel does not gate consumers | An agent can act on a message Sentinel is about to quarantine | P4 |
-| No model — lexical baseline only | Semantic dedup caps around 0.67; most true duplicates land in the grey zone | Lane 4 |
+| Verdict gate deadline is Postgres-polled, not a Redis Streams subscription | Under real load, a slow verdict *write* (not just a slow verdict) delays every gated consumer; not load-tested | Unscheduled — see `common/verdict_gate.py` |
+| Verdict gate defaults off | `Settings.sentinel_gate_enabled` must be turned on deliberately; a deployment that never sets it gets P1-era behaviour despite the gate existing | Operational decision, not code |
+| No model — lexical baseline only | Semantic dedup caps around 0.67; measured `dedup_recall: 0.0` on the P4 golden set (`scripts/evaluate.py`) | Lane 4 |
 | No face or plate blurring | **Open PII gap.** A photo containing a bystander is stored with them legible | P6 |
 | No ASR, no vision | Audio and photos are stored but never read | P6 |
 | No reverse geocoding | Reports carry coordinates and a ward, not a street address | Unscheduled |

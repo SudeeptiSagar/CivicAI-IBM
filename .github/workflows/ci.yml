@@ -79,6 +79,13 @@ jobs:
         # integration test is visible in the log rather than hidden in a dot.
         run: pytest -rs
 
+      - name: Sentinel golden-set regression gate
+        # PRD milestone M3's acceptance criterion: "a deliberately broken agent
+        # build is blocked by CI". Two checks (see scripts/evaluate.py):
+        # known-bad fixtures must still fail L1, and the golden-set metrics
+        # must not regress against agents/av_sentinel/goldens/baseline.json.
+        run: python -m scripts.evaluate
+
       - name: Confirm integration tests actually ran
         # Integration tests skip when the services are unreachable. That is the
         # right behaviour on a laptop, but in CI a run where they all skipped

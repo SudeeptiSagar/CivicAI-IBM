@@ -286,10 +286,10 @@ def test_agent_health_reports_activity(pipeline: dict[str, Any], client: TestCli
 
     body = client.get("/v1/health/agents").json()
 
-    assert body["sentinel_layers_active"] == ["L1"]
-    # P1 verifies alongside consumers rather than in front of them; the API must
-    # say so rather than let the configured mode imply a guarantee. See
-    # docs/sentinel.md.
+    assert body["sentinel_layers_active"] == ["L1", "L2"]
+    # The gate defaults off even in P4 (Settings.sentinel_gate_enabled); the
+    # API reports the actual flag rather than implying it is always on just
+    # because the gate exists. See docs/sentinel.md.
     assert body["sentinel_gate_enforced"] is False
     echo = next(a for a in body["agents"] if a["agent"] == "ECHO")
     assert echo["runs"] == 1

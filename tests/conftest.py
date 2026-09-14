@@ -62,6 +62,7 @@ _MUTABLE_TABLES = (
     "quarantine",
     "verification_results",
     "sentinel_alerts",
+    "sentinel_fail_soft_retries",
     "agent_runs",
     "messages",
     "resolutions",

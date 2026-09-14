@@ -20,9 +20,29 @@ Self-verification is excluded deliberately. Sentinel's own outputs
 for every verdict, forever. PRD section 8.2 covers Sentinel with a separate
 meta-check instead, which arrives with L4 in P6.
 
-Only L1 runs in P1. L2 invariants, the L3 judge and L4 continuous checks are
-P4 and P6; until then Sentinel reports what it can actually verify rather than
-implying broader coverage.
+L1 and L2 run as of P4. The L3 judge and L4 continuous checks are P6; until
+then Sentinel reports what it can actually verify rather than implying
+broader coverage.
+
+## L2 and `fail_soft` (P4)
+
+L2 (`agents/av_sentinel/layers/invariants.py`) runs after L1 passes, for the
+seven topics that have invariants defined (`layers.invariants.has_rules_for`).
+A topic with no L2 rules gets only its L1 verdict — no rubber-stamp second
+"pass" is published for it.
+
+`fail_soft` is distinct from the retry budget `agents.base.Agent` already
+runs. That budget is for *transport or handler* failures — an exception
+`handle()` raised. `fail_soft` is a *verification* failure: the handler ran
+fine and produced a plausible-looking output that Sentinel's business rules
+say is wrong in a way worth one more attempt at (a summary over the word cap,
+for instance). Sentinel triggers this retry itself, by clearing the
+producing agent's idempotency record for the message that *caused* the failed
+output and republishing that cause message to the producer's own input topic,
+with the failure reason appended to its `rationale`. One retry only — a
+second `fail_soft` on the same message escalates to `fail_hard`/quarantine
+rather than retrying forever, tracked in `sentinel_fail_soft_retries`
+(migration 0004).
 """
 
 from __future__ import annotations
@@ -30,6 +50,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from agents.av_sentinel.layers.invariants import InvariantVerdict, has_rules_for, verify_invariants
 from agents.av_sentinel.layers.structural import StructuralVerdict, verify_structural
 from bus.base import Bus
 from common.config import SentinelMode, settings
@@ -41,6 +62,10 @@ from common.messagelog import archive
 from common.topics import TOPICS, quarantine_topic_for, skipped_topic_for
 
 __all__ = ["SELF_TOPICS", "VERIFIED_TOPICS", "Sentinel"]
+
+#: Both verdict classes carry the same verdict/reasons/layer shape (L1's
+#: `Reason` is reused by L2 deliberately, see `layers/invariants.py`).
+AnyVerdict = StructuralVerdict | InvariantVerdict
 
 log = get_logger(__name__)
 
@@ -105,9 +130,17 @@ class Sentinel:
         for topic in self.topics:
             self.bus.create_group(topic, GROUP)
 
-    def run_once(self, *, count: int = 50) -> list[StructuralVerdict]:
-        """Sweep every topic once. Returns the verdicts reached."""
-        verdicts: list[StructuralVerdict] = []
+    def run_once(self, *, count: int = 50) -> list[AnyVerdict]:
+        """Sweep every topic once. Returns the final verdict reached per message.
+
+        "Final" means: L1's, if L1 failed (L2 cannot reason about an envelope
+        that does not match its own contract); L2's otherwise, for topics that
+        have L2 rules (`layers.invariants.has_rules_for`); L1's `pass`
+        otherwise. Both L1 and L2 verdicts are still recorded and published —
+        this return value is what a caller checks to decide "did this message
+        clear Sentinel", not the complete record.
+        """
+        verdicts: list[AnyVerdict] = []
         for topic in self.topics:
             self.bus.create_group(topic, GROUP)
             for message in self.bus.subscribe(topic, GROUP, self.consumer, count=count):
@@ -121,7 +154,7 @@ class Sentinel:
         self.subscribe_all()
         log.info(
             "sentinel starting",
-            extra={"mode": self.mode, "topics": len(self.topics), "layers": ["L1"]},
+            extra={"mode": self.mode, "topics": len(self.topics), "layers": ["L1", "L2"]},
         )
         while self._running:
             try:
@@ -136,26 +169,39 @@ class Sentinel:
 
     # -- verification -----------------------------------------------------
 
-    def verify(self, topic: str, raw: dict[str, Any]) -> StructuralVerdict:
-        """Run L1 on one envelope and act on the verdict."""
+    def verify(self, topic: str, raw: dict[str, Any]) -> AnyVerdict:
+        """Run L1, then L2 if L1 passed and the topic has rules, and act."""
         trace_id = str(raw.get("trace_id") or uuid7())
 
         with bind_trace(trace_id):
-            verdict = verify_structural(raw)
-            verdict_id = uuid7()
+            l1 = verify_structural(raw)
+            l1_id = uuid7()
+            self._record_verdict(l1_id, l1, topic, raw, trace_id)
+            self._publish_verdict(l1_id, l1, topic, raw, trace_id)
 
-            self._record_verdict(verdict_id, verdict, topic, raw, trace_id)
-            self._publish_verdict(verdict_id, verdict, topic, raw, trace_id)
+            if l1.verdict == "fail_hard":
+                self._quarantine(l1_id, l1, topic, raw, trace_id)
+                return l1
 
-            if verdict.verdict == "fail_hard":
-                self._quarantine(verdict_id, verdict, topic, raw, trace_id)
+            if not has_rules_for(topic):
+                return l1
 
-            return verdict
+            l2 = verify_invariants(topic, raw, allow_db=self.persist)
+            l2_id = uuid7()
+            self._record_verdict(l2_id, l2, topic, raw, trace_id)
+            self._publish_verdict(l2_id, l2, topic, raw, trace_id)
+
+            if l2.verdict == "fail_hard":
+                self._quarantine(l2_id, l2, topic, raw, trace_id)
+            elif l2.verdict == "fail_soft":
+                self._fail_soft_retry(l2_id, l2, topic, raw, trace_id)
+
+            return l2
 
     def _record_verdict(
         self,
         verdict_id: Any,
-        verdict: StructuralVerdict,
+        verdict: AnyVerdict,
         topic: str,
         raw: dict[str, Any],
         trace_id: str,
@@ -186,7 +232,7 @@ class Sentinel:
     def _publish_verdict(
         self,
         verdict_id: Any,
-        verdict: StructuralVerdict,
+        verdict: AnyVerdict,
         topic: str,
         raw: dict[str, Any],
         trace_id: str,
@@ -203,7 +249,7 @@ class Sentinel:
             "judge_model": None,
             "created_at": utcnow().isoformat().replace("+00:00", "Z"),
         }
-        summary = f"L1 {verdict.verdict} for {topic}"
+        summary = f"{verdict.layer} {verdict.verdict} for {topic}"
         if verdict.reasons:
             summary += f": {verdict.reasons[0].message}"
 
@@ -221,7 +267,7 @@ class Sentinel:
     def _quarantine(
         self,
         verdict_id: Any,
-        verdict: StructuralVerdict,
+        verdict: AnyVerdict,
         topic: str,
         raw: dict[str, Any],
         trace_id: str,
@@ -253,7 +299,7 @@ class Sentinel:
         envelope = self._envelope_for(
             raw,
             topic=quarantine_topic_for(topic),
-            rationale=f"L1 fail_hard on {topic}; quarantined for human triage",
+            rationale=f"{verdict.layer} {verdict.verdict} on {topic}; quarantined for human triage",
             payload={
                 "original_envelope": raw,
                 "verdict_id": str(verdict_id),
@@ -267,6 +313,98 @@ class Sentinel:
             extra={"topic": topic, "reasons": [r["code"] for r in reasons]},
         )
         self._emit(envelope)
+
+    # -- fail_soft (P4, PRD section 8.2) -----------------------------------
+
+    def _fail_soft_retry(
+        self,
+        verdict_id: Any,
+        verdict: AnyVerdict,
+        topic: str,
+        raw: dict[str, Any],
+        trace_id: str,
+    ) -> None:
+        """One retry of the producer, distinct from `Agent`'s transport retries.
+
+        See the module docstring's "L2 and fail_soft" section for why this
+        exists as a separate path. Requires persistence: without a database
+        there is no idempotency record to clear and no archived cause message
+        to replay, so a `fail_soft` verdict with persistence off is recorded
+        and published like any other verdict but nothing is retried — logged,
+        not silently dropped.
+        """
+        if not self.persist:
+            log.warning(
+                "fail_soft verdict but persistence is off; cannot retry the producer",
+                extra={"topic": topic, "message_id": raw.get("message_id")},
+            )
+            return
+
+        message_id = str(raw.get("message_id") or "")
+        causation_id = raw.get("causation_id")
+        producer_agent = _producing_agent(raw)
+        if not message_id or not causation_id:
+            log.warning(
+                "fail_soft verdict has no causation_id to retry against",
+                extra={"topic": topic, "message_id": message_id},
+            )
+            return
+
+        with transaction() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM sentinel_fail_soft_retries WHERE message_id = %s", (message_id,)
+            )
+            already_retried = cur.fetchone() is not None
+
+            cur.execute("SELECT envelope FROM messages WHERE message_id = %s", (str(causation_id),))
+            cause_row = cur.fetchone()
+
+            if not already_retried and cause_row is not None:
+                cause_envelope = cause_row["envelope"]
+                cur.execute(
+                    "DELETE FROM handler_results WHERE agent = %s AND handler_key = %s",
+                    (producer_agent, _idempotency_key(cause_envelope)),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO sentinel_fail_soft_retries
+                        (message_id, trace_id, topic, agent, reason, retried_at)
+                    VALUES (%s, %s, %s, %s, %s, now())
+                    ON CONFLICT (message_id) DO NOTHING
+                    """,
+                    (
+                        message_id,
+                        trace_id,
+                        topic,
+                        producer_agent,
+                        "; ".join(r.message for r in verdict.reasons)[:MAX_RATIONALE_LENGTH],
+                    ),
+                )
+
+        if already_retried:
+            log.warning(
+                "fail_soft verdict on a message already retried once; escalating to quarantine",
+                extra={"topic": topic, "message_id": message_id},
+            )
+            self._quarantine(verdict_id, verdict, topic, raw, trace_id)
+            return
+
+        if cause_row is None:
+            log.warning(
+                "fail_soft verdict but the cause message is not archived; cannot retry",
+                extra={"topic": topic, "message_id": message_id, "causation_id": causation_id},
+            )
+            return
+
+        reason_text = "; ".join(r.message for r in verdict.reasons) or "L2 invariant failed"
+        retried = dict(cause_row["envelope"])
+        retried["rationale"] = _append_reason(retried.get("rationale", ""), reason_text)
+
+        log.warning(
+            "fail_soft: retrying producer",
+            extra={"agent": producer_agent, "topic": retried.get("topic"), "reason": reason_text},
+        )
+        self.bus.publish(str(retried["topic"]), retried)
 
     # -- helpers ----------------------------------------------------------
 
@@ -329,3 +467,36 @@ def _as_uuid(value: str) -> Any:
         return UUID(value)
     except ValueError:
         return uuid7()
+
+
+def _idempotency_key(envelope: dict[str, Any]) -> str:
+    """`Envelope.idempotency_key()`, recomputed from a raw dict.
+
+    Used only to clear the producer's `handler_results` row for a `fail_soft`
+    retry; a raw dict is what `messages.envelope` gives back, and building a
+    full `Envelope` just to read four fields would risk the retry itself
+    failing on exactly the kind of malformed input Sentinel exists to catch.
+    """
+    producer = envelope.get("producer") or {}
+    version = producer.get("version") if isinstance(producer, dict) else None
+    return "|".join(
+        (
+            str(envelope.get("correlation_id", "")),
+            str(envelope.get("topic", "")),
+            str(envelope.get("schema_version", "")),
+            str(version or ""),
+        )
+    )
+
+
+#: Cap the retried rationale so an appended reason never overflows the
+#: envelope's 2000-character limit (PRD section 9.2).
+_MAX_RATIONALE = 2000
+
+
+def _append_reason(rationale: str, reason: str) -> str:
+    """`rationale`, with the fail_soft reason appended (PRD section 8.2)."""
+    suffix = f" [sentinel fail_soft retry: {reason}]"
+    if len(rationale) + len(suffix) <= _MAX_RATIONALE:
+        return rationale + suffix
+    return (rationale + suffix)[: _MAX_RATIONALE - 3] + "..."
