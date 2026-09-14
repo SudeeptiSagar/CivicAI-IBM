@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/resolution.disputed.v1.json",
+  "title": "CivicAI resolution.disputed v1",
+  "description": "Closure rejected; incident reopens and the SLA restarts. PRD 7/A6. Producer: A6.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "resolution.disputed"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution_id",
+        "incident_id",
+        "final_status",
+        "citizen_confirmations",
+        "citizen_disputes",
+        "visual_verdict",
+        "reopened",
+        "disputed_at"
+      ],
+      "properties": {
+        "resolution_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "incident_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "final_status": {
+          "const": "disputed"
+        },
+        "citizen_confirmations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "citizen_disputes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "visual_verdict": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "unchanged",
+            "inconclusive"
+          ]
+        },
+        "reopened": {
+          "const": true
+        },
+        "disputed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "escalated_priority_band": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/envelope.v1.json",
+  "title": "CivicAI message envelope v1",
+  "description": "Common envelope for every message on the bus. PRD section 9.2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "message_id",
+    "trace_id",
+    "causation_id",
+    "correlation_id",
+    "topic",
+    "schema_version",
+    "emitted_at",
+    "producer",
+    "confidence",
+    "rationale",
+    "verification",
+    "payload"
+  ],
+  "properties": {
+    "message_id": {
+      "$ref": "#/$defs/uuid"
+    },
+    "trace_id": {
+      "$ref": "#/$defs/uuid"
+    },
+    "causation_id": {
+      "description": "Message that caused this one. Null only for a trace-originating message (A0 intake).",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "correlation_id": {
+      "description": "report_id or incident_id. Ordering is guaranteed per correlation_id only.",
+      "type": "string",
+      "minLength": 1
+    },
+    "topic": {
+      "$ref": "#/$defs/topic"
+    },
+    "schema_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "emitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent",
+        "version"
+      ],
+      "properties": {
+        "agent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "$ref": "#/$defs/semver"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "confidence": {
+      "$ref": "#/$defs/confidence"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "verdict_id",
+        "checked_layers"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "pass",
+            "warn",
+            "fail_soft",
+            "fail_hard"
+          ]
+        },
+        "verdict_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checked_layers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "L1",
+              "L2",
+              "L3",
+              "L4"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "topic": {
+      "description": "Concrete topics from PRD 9.3, plus the quarantine.*, control.* and *.skipped families.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*([.][a-z0-9_]+)*$",
+      "minLength": 1
+    },
+    "geo_point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "properties": {
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        }
+      }
+    },
+    "category": {
+      "description": "Complaint taxonomy. Membership is enforced structurally here and re-checked by Sentinel L2.",
+      "type": "string",
+      "enum": [
+        "pothole",
+        "waterlogging",
+        "drain_overflow",
+        "sewage",
+        "garbage",
+        "streetlight",
+        "traffic_obstruction",
+        "road_damage",
+        "water_supply",
+        "stray_animals",
+        "tree_hazard",
+        "public_toilet",
+        "encroachment",
+        "other"
+      ]
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "roads_and_infrastructure",
+        "drainage_and_water",
+        "solid_waste_management",
+        "electrical_streetlights",
+        "health",
+        "parks"
+      ]
+    },
+    "hazard_flag": {
+      "description": "Hazard markers set by A1. The life-safety subset (open_manhole, live_wire, collapsed_structure, gas_leak) triggers A4's hard priority floor of 85.",
+      "type": "string",
+      "enum": [
+        "open_manhole",
+        "live_wire",
+        "collapsed_structure",
+        "gas_leak",
+        "deep_water",
+        "sharp_debris",
+        "fire_risk",
+        "blocked_emergency_access",
+        "structural_crack",
+        "traffic_hazard"
+      ]
+    }
+  }
+}

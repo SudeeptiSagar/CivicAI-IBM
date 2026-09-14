@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/incidents.prioritized.v1.json",
+  "title": "CivicAI incidents.prioritized v1",
+  "description": "Explainable priority score. PRD 7/A4. Producer: A4.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "incidents.prioritized"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incident_id",
+        "priority_score",
+        "priority_band",
+        "factor_breakdown",
+        "why",
+        "life_safety_floor_applied"
+      ],
+      "properties": {
+        "incident_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "priority_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "priority_band": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "factor_breakdown": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "factor",
+              "weight",
+              "value",
+              "contribution"
+            ],
+            "properties": {
+              "factor": {
+                "type": "string",
+                "enum": [
+                  "hazard_severity",
+                  "exposure",
+                  "vulnerable_site_proximity",
+                  "corroboration",
+                  "age_unresolved",
+                  "velocity"
+                ]
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "value": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "contribution": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "why": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "life_safety_floor_applied": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

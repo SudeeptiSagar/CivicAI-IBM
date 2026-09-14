@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/incidents.routed.v1.json",
+  "title": "CivicAI incidents.routed v1",
+  "description": "Department ownership and SLA clock. PRD 7/A5. Producer: A5.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "incidents.routed"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incident_id",
+        "primary_department",
+        "cc_departments",
+        "sla_due_at",
+        "sla_hours"
+      ],
+      "properties": {
+        "incident_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "primary_department": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/department"
+        },
+        "cc_departments": {
+          "type": "array",
+          "items": {
+            "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/department"
+          },
+          "uniqueItems": true
+        },
+        "ward_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "office_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sla_due_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sla_hours": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "priority_band": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        }
+      }
+    }
+  }
+}

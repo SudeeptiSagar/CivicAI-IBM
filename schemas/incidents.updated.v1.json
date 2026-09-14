@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/incidents.updated.v1.json",
+  "title": "CivicAI incidents.updated v1",
+  "description": "Incident created or updated; may carry a root-cause hypothesis. PRD 7/A3. Producer: A3.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "incidents.updated"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incident_id",
+        "mode",
+        "title",
+        "category",
+        "centroid",
+        "first_reported_at",
+        "last_reported_at",
+        "report_count",
+        "distinct_reporters",
+        "member_report_ids",
+        "status"
+      ],
+      "properties": {
+        "incident_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "consolidation",
+            "pattern"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/category"
+        },
+        "centroid": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/geo_point"
+        },
+        "ward_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "first_reported_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_reported_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "report_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "distinct_reporters": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "member_report_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "routed",
+            "in_progress",
+            "resolution_claimed",
+            "verified",
+            "reopened",
+            "needs_human_review"
+          ]
+        },
+        "super_incident": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "super_incident_id",
+                "hypothesis",
+                "confidence",
+                "member_incident_ids",
+                "window_start",
+                "window_end",
+                "source"
+              ],
+              "properties": {
+                "super_incident_id": {
+                  "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+                },
+                "hypothesis": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "member_incident_ids": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+                  },
+                  "minItems": 2,
+                  "uniqueItems": true
+                },
+                "window_start": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "window_end": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "seed_rule",
+                    "llm"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

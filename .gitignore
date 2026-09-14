@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Environment / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Node
+node_modules/
+dist/
+build/
+
+# Local data & generated artifacts (PRD: never commit datasets/weights/artifacts)
+data/media/
+data/blobs/
+*.sqlite
+*.db
+
+# Session tooling
+.remember/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

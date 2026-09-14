@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/reports.understood.v1.json",
+  "title": "CivicAI reports.understood v1",
+  "description": "Multimodal extraction for one report. PRD 7/A1. Producer: A1.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "reports.understood"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_id",
+        "category",
+        "severity_raw",
+        "hazard_flags",
+        "summary",
+        "embedding",
+        "modality_conflict"
+      ],
+      "properties": {
+        "report_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "category": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/category"
+        },
+        "subcategory": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "severity_raw": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "hazard_flags": {
+          "type": "array",
+          "items": {
+            "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/hazard_flag"
+          },
+          "uniqueItems": true
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "embedding": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 768,
+          "maxItems": 768
+        },
+        "transcript": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lang": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "landmark_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location_refined": {
+          "oneOf": [
+            {
+              "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/geo_point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vision_labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "modality_conflict": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

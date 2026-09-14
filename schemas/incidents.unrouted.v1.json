@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://civicai.dev/schemas/incidents.unrouted.v1.json",
+  "title": "CivicAI incidents.unrouted v1",
+  "description": "Routing undetermined; goes to human triage, never a silent default. PRD 7/A5. Producer: A5.",
+  "allOf": [
+    {
+      "$ref": "https://civicai.dev/schemas/envelope.v1.json"
+    }
+  ],
+  "required": [
+    "topic",
+    "payload"
+  ],
+  "properties": {
+    "topic": {
+      "const": "incidents.unrouted"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incident_id",
+        "reason_code",
+        "reason"
+      ],
+      "properties": {
+        "incident_id": {
+          "$ref": "https://civicai.dev/schemas/envelope.v1.json#/$defs/uuid"
+        },
+        "attempted_category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason_code": {
+          "type": "string",
+          "enum": [
+            "unknown_category",
+            "no_jurisdiction_match",
+            "ambiguous_ownership"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
