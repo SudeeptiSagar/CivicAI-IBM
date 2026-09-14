@@ -12,7 +12,15 @@ from typing import Any
 
 from common.db import connect
 
-__all__ = ["agent_activity", "trace_messages", "trace_runs", "trace_verdicts", "verdict_mix"]
+__all__ = [
+    "agent_activity",
+    "incident",
+    "list_incidents",
+    "trace_messages",
+    "trace_runs",
+    "trace_verdicts",
+    "verdict_mix",
+]
 
 
 def trace_messages(trace_id: str) -> list[dict[str, Any]]:
@@ -123,6 +131,71 @@ def report(report_id: str) -> dict[str, Any] | None:
             WHERE r.report_id = %s
             """,
             (report_id,),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
+
+
+_INCIDENT_COLUMNS = """
+    incident_id, title, category, ward_id,
+    ST_Y(centroid::geometry) AS lat, ST_X(centroid::geometry) AS lon,
+    first_reported_at, last_reported_at, report_count, distinct_reporters,
+    priority_score, priority_band, factor_breakdown, why,
+    department_id, cc_departments, sla_due_at, status,
+    super_incident_id, created_at, updated_at
+"""
+
+
+def list_incidents(
+    *,
+    ward: str | None = None,
+    department: str | None = None,
+    band: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Incidents matching the given filters, ranked highest priority first.
+
+    Sorted the same way as `incidents_priority_idx` (PRD section 12 dashboard
+    queue): priority_score descending, nulls last so un-prioritized incidents
+    sink rather than sorting ambiguously.
+    """
+    clauses: list[str] = []
+    params: dict[str, Any] = {"limit": limit}
+    if ward is not None:
+        clauses.append("ward_id = %(ward)s")
+        params["ward"] = ward
+    if department is not None:
+        clauses.append("department_id = %(department)s")
+        params["department"] = department
+    if band is not None:
+        clauses.append("priority_band = %(band)s")
+        params["band"] = band
+    if status is not None:
+        clauses.append("status = %(status)s")
+        params["status"] = status
+
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT {_INCIDENT_COLUMNS}
+            FROM incidents
+            {where}
+            ORDER BY priority_score DESC NULLS LAST, first_reported_at
+            LIMIT %(limit)s
+            """,
+            params,
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def incident(incident_id: str) -> dict[str, Any] | None:
+    """One incident's full record, or None."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"SELECT {_INCIDENT_COLUMNS} FROM incidents WHERE incident_id = %s",
+            (incident_id,),
         )
         row = cur.fetchone()
     return dict(row) if row else None

@@ -6,10 +6,12 @@
     GET  /v1/health/agents      per-agent liveness, lag and verdict mix
     GET  /v1/trace/{trace_id}   full agent decision DAG with Sentinel verdicts
 
+    GET  /v1/incidents          department queue: filter + priority order
+    GET  /v1/incidents/{id}     one incident's full record
+
 Still to come, with the agents that own the tables behind them:
-`/v1/incidents` and `/v1/super-incidents` (P3 and P5), and the resolve/confirm
-endpoints (P5). An endpoint whose agent does not exist would be a row insert
-dressed up as a decision.
+`/v1/super-incidents` and the resolve/confirm endpoints (P5). An endpoint
+whose agent does not exist would be a row insert dressed up as a decision.
 """
 
 from __future__ import annotations
@@ -99,6 +101,40 @@ class ReportStatus(BaseModel):
         default=None, description='The "17 others reported this" figure from PRD section 5.'
     )
     incident_title: str | None = None
+
+
+class FactorBreakdownItem(BaseModel):
+    factor: str
+    weight: float
+    value: float
+    contribution: float
+
+
+class IncidentSummary(BaseModel):
+    incident_id: str
+    title: str
+    category: str
+    ward_id: str | None
+    lat: float
+    lon: float
+    first_reported_at: dt.datetime
+    last_reported_at: dt.datetime
+    report_count: int
+    distinct_reporters: int
+    priority_score: float | None
+    priority_band: str | None = Field(default=None, description="Null until A4 has scored it.")
+    department_id: str | None = Field(default=None, description="Null until A5 has routed it.")
+    cc_departments: list[str] = Field(default_factory=list)
+    sla_due_at: dt.datetime | None
+    status: str
+
+
+class Incident(IncidentSummary):
+    why: str | None = None
+    factor_breakdown: list[FactorBreakdownItem] | None = None
+    super_incident_id: str | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
 
 
 class TopicLag(BaseModel):
@@ -246,6 +282,68 @@ def report_status(report_id: str) -> ReportStatus:
             int(row["incident_report_count"]) if row["incident_report_count"] else None
         ),
         incident_title=row["incident_title"],
+    )
+
+
+@app.get("/v1/incidents", response_model=list[IncidentSummary], tags=["incidents"])
+def list_incidents(
+    ward: str | None = None,
+    department: str | None = None,
+    band: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+) -> list[IncidentSummary]:
+    """Department dashboard queue (PRD section 12): filter, sorted by priority.
+
+    Sort order matches `incidents_priority_idx`: highest `priority_score`
+    first, un-prioritized incidents (score still null) sink to the bottom
+    rather than sorting arbitrarily.
+    """
+    rows = queries.list_incidents(
+        ward=ward, department=department, band=band, status=status, limit=limit
+    )
+    return [_incident_summary(row) for row in rows]
+
+
+@app.get("/v1/incidents/{incident_id}", response_model=Incident, tags=["incidents"])
+def get_incident(incident_id: str) -> Incident:
+    """One incident's full record, including its explainable score."""
+    row = queries.incident(incident_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no incident {incident_id}")
+
+    return Incident(
+        **_incident_summary(row).model_dump(),
+        why=row["why"],
+        factor_breakdown=(
+            [FactorBreakdownItem(**item) for item in row["factor_breakdown"]]
+            if row["factor_breakdown"]
+            else None
+        ),
+        super_incident_id=str(row["super_incident_id"]) if row["super_incident_id"] else None,
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def _incident_summary(row: dict[str, Any]) -> IncidentSummary:
+    return IncidentSummary(
+        incident_id=str(row["incident_id"]),
+        title=row["title"],
+        category=row["category"],
+        ward_id=row["ward_id"],
+        lat=float(row["lat"]),
+        lon=float(row["lon"]),
+        first_reported_at=row["first_reported_at"],
+        last_reported_at=row["last_reported_at"],
+        report_count=int(row["report_count"]),
+        distinct_reporters=int(row["distinct_reporters"]),
+        priority_score=float(row["priority_score"]) if row["priority_score"] is not None else None,
+        priority_band=row["priority_band"],
+        department_id=row["department_id"],
+        cc_departments=list(row["cc_departments"] or []),
+        sla_due_at=row["sla_due_at"],
+        status=row["status"],
     )
 
 

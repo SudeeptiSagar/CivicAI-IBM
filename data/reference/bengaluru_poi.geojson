@@ -1,0 +1,78 @@
+{
+  "type": "FeatureCollection",
+  "name": "bengaluru-poi-synthetic",
+  "_disclaimer": "SYNTHETIC PLACEHOLDER POI DATA -- NOT REAL BBMP OR OSM DATA. These are a small, deterministic, hand-placed set of school and hospital points inside the bounding boxes of the wards already fabricated in bengaluru.geojson. They exist so A4's vulnerable_site_proximity factor has something real to compute a PostGIS distance against; they do not correspond to any actual school or hospital. Replace with a real OSM/BBMP POI extract before any claim about real coverage.",
+  "_source": "hand-placed synthetic fixture, 2026-09-14",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "school",
+        "poi_id": "poi-school-001",
+        "name": "Synthetic Fixture School 1 (Koramangala 5th Block)",
+        "source": "synthetic-fixture"
+      },
+      "geometry": { "type": "Point", "coordinates": [77.6075, 12.935] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "hospital",
+        "poi_id": "poi-hospital-001",
+        "name": "Synthetic Fixture Hospital 1 (Koramangala 5th Block)",
+        "source": "synthetic-fixture"
+      },
+      "geometry": { "type": "Point", "coordinates": [77.610, 12.933] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "school",
+        "poi_id": "poi-school-002",
+        "name": "Synthetic Fixture School 2 (Koramangala 6th Block)",
+        "source": "synthetic-fixture"
+      },
+      "geometry": { "type": "Point", "coordinates": [77.622, 12.935] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "hospital",
+        "poi_id": "poi-hospital-002",
+        "name": "Synthetic Fixture Hospital 2 (Koramangala 4th Block)",
+        "source": "synthetic-fixture"
+      },
+      "geometry": { "type": "Point", "coordinates": [77.608, 12.925] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "school",
+        "poi_id": "poi-school-003",
+        "name": "Synthetic Fixture School 3 (Ejipura)",
+        "source": "synthetic-fixture"
+      },
+      "geometry": { "type": "Point", "coordinates": [77.622, 12.925] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "hospital",
+        "poi_id": "poi-hospital-003",
+        "name": "Synthetic Fixture Hospital 3 (Indiranagar)",
+        "source": "synthetic-fixture"
+      },
+      "geometry": { "type": "Point", "coordinates": [77.640, 12.970] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "school",
+        "poi_id": "poi-school-004",
+        "name": "Synthetic Fixture School 4 (Indiranagar)",
+        "source": "synthetic-fixture"
+      },
+      "geometry": { "type": "Point", "coordinates": [77.635, 12.965] }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 # CivicAI — Roadmap and handover
 
 **Status as of 14 September 2026.** Written as a handover: if you are picking this
-up cold, read [Start here](#start-here) first, then [What is next](#p3--decisioning--next-up).
+up cold, read [Start here](#start-here) first, then [What is next](#p4--sentinel-hardening--next-up).
 
 [`PRD.md`](PRD.md) remains the source of truth for requirements. This document
 records only what has actually been built, what has not, and what to do next.
@@ -12,16 +12,16 @@ records only what has actually been built, what has not, and what to do next.
 
 | | |
 |---|---|
-| Phases complete | **3 of 8** (P0, P1, P2) |
-| PRD milestones met | **M0** and **M1** |
-| Agents built | **5 of 8** — A0, A1, A2, A3, AV Sentinel |
-| Tests | **493 passing** |
-| Next phase | **P3 — Decisioning** (A4 Prioritization, A5 Routing) |
-| Biggest blocker | No IBM watsonx credentials (PRD open question 2) |
+| Phases complete | **4 of 8** (P0, P1, P2, P3) |
+| PRD milestones met | **M0**, **M1** and **M2** |
+| Agents built | **7 of 8** — A0, A1, A2, A3, A4, A5, AV Sentinel |
+| Tests | **427 passing** (142 skipped when the stack is down) |
+| Next phase | **P4 — Sentinel hardening** |
+| Biggest blocker | No IBM watsonx credentials (PRD open question 2) — does not block P4 |
 
 ```
-P0 ✅  P1 ✅  P2 ✅  │  P3 ⏭  P4 ⬜  P5 ⬜  P6 ⬜  P7 ⬜
-contracts  infra  core   │  decide  sentinel  pattern  judge  demo
+P0 ✅  P1 ✅  P2 ✅  P3 ✅  │  P4 ⏭  P5 ⬜  P6 ⬜  P7 ⬜
+contracts  infra  core  decide  │  sentinel  pattern  judge  demo
 ```
 
 ---
@@ -44,7 +44,8 @@ docker compose run --rm migrate            # database schema
 docker compose run --rm load-reference     # city and ward polygons - A0 needs these
 
 # 3. The pipeline
-docker compose up -d api agent-sentinel agent-perception agent-dedup agent-synthesis
+docker compose up -d api agent-sentinel agent-perception agent-dedup agent-synthesis \
+    agent-priority agent-routing
 curl localhost:8000/v1/health
 
 # 4. Prove it works
@@ -150,6 +151,56 @@ reports from four devices.
   deterministic lexical baseline. See [the honest caveats](#1-the-reasoning-provider-is-not-a-model).
 - **API** — `POST /v1/reports`, `GET /v1/reports/{id}`.
 
+### P3 — Decisioning ✅
+
+`pending commit` · on worktree branch `worktree-agent-af9d1af2a7017f207` · 13 files
+
+**PRD milestone M2 met:** every seeded incident gets an explainable priority
+score and a department. Purely deterministic arithmetic — the missing watsonx
+credentials do not block this phase, and nothing here calls a model.
+
+- **A4 Prioritization** (`agents/a4_priority/`) — six-factor weighted score in
+  [0,100] (hazard severity 0.30, exposure 0.20, vulnerable-site proximity 0.15,
+  corroboration 0.15, age unresolved 0.10, velocity 0.10), every score carrying
+  its full `factor_breakdown` and a traceable one-sentence `why`. Corroboration
+  is log-scaled against `distinct_reporters` (already device-deduplicated by
+  A3), so one street cannot brigade the queue. A life-safety hazard flag (open
+  manhole, live wire, collapsed structure, gas leak) floors the score at 85
+  regardless of the weighted sum, with `life_safety_floor_applied` recording
+  that the floor, not the arithmetic, decided the number. The pure scoring
+  functions are importable and DB-free, mirroring `common/matching.py`'s
+  discipline.
+- **A5 Routing** (`agents/a5_routing/`) — a category→department map (13 of 14
+  taxonomy categories; `"other"` is deliberately unmapped), one
+  ambiguous-ownership rule (`waterlogging`/`drain_overflow` cc
+  `roads_and_infrastructure` — standing water is drainage's fix but a road
+  problem too), and an SLA clock that scales each department's
+  `default_sla_hours` by a priority-band multiplier (critical ×0.25 through
+  low ×1.5). An unmapped or unregistered department routes to
+  `incidents.unrouted` with a reason code — never a silent default.
+- **`db/migrations/0003_priority_routing_reference.sql`** — `poi` (schools/
+  hospitals, for the proximity factor) and `ward_road_class` (a coarse
+  per-ward proxy for the exposure factor). Seeded from
+  `data/reference/bengaluru_poi.geojson`, loaded by the extended
+  `scripts/load_reference_data.py` / `load-reference` compose step.
+- **API** — `GET /v1/incidents` (filter by ward/department/band/status, sorted
+  by priority) and `GET /v1/incidents/{id}`.
+- **`docker-compose.yml`** — `agent-priority` and `agent-routing` service
+  blocks, following the `agent-synthesis` anchor pattern.
+
+**Honest caveats specific to this phase**, also recorded in the code:
+
+- The `poi` seed is a **small, synthetic, hand-placed fixture** — *not* a real
+  BBMP/OSM extract. It exists so `vulnerable_site_proximity` has something real
+  to compute a PostGIS distance against, not to claim real school/hospital
+  coverage.
+- `exposure` uses a **ward-level road-class proxy**
+  (`ward_road_class`), not a real road-segment network join. A real network
+  would classify the incident's actual street; this classifies its whole ward.
+- **No ward→office jurisdiction table exists.** `office_id` on
+  `incidents.routed` is always `null` — `ward_id` is the real jurisdiction
+  signal this phase has.
+
 ---
 
 ## Things that are true of this build
@@ -201,39 +252,7 @@ rather than letting the configured mode imply a guarantee. Closing it is P4.
 
 ## Remaining phases
 
-### P3 — Decisioning — NEXT UP
-
-**PRD milestone M2.** Acceptance: ranked department dashboards with explainable
-scores.
-
-Mostly deterministic arithmetic, so the missing language model matters far less
-here than it did in P2. **This is the phase least blocked by credentials** — it
-is the right thing to do next.
-
-- `agents/a4_priority/` — six-factor weighted score in [0,100]:
-  hazard severity 0.30, exposure 0.20, vulnerable-site proximity 0.15,
-  corroboration 0.15, age unresolved 0.10, velocity 0.10
-- `factor_breakdown[]` and a one-sentence `why` on every score. A score with no
-  breakdown is already rejected by a database constraint and by Sentinel.
-- Hard floor of **85** for life-safety flags (open manhole, live wire, collapsed
-  structure, gas leak), independent of report count
-- Corroboration **log-scaled and device-deduplicated**, so one street cannot
-  brigade the queue
-- `agents/a5_routing/` — category→department map, ward→jurisdiction lookup,
-  SLA clock by (department, priority band)
-- Ambiguous ownership emits `primary_department` plus `cc_departments[]`;
-  unknown category goes to `incidents.unrouted`, never a silent default
-- Reference data: a POI layer (schools, hospitals) and road class for the
-  exposure and proximity factors. **Needs migration `0003`.**
-- API: `GET /v1/incidents` (filter by ward, department, band, status; sorted by
-  priority) and `GET /v1/incidents/{id}`
-
-Useful groundwork already in place: the `departments` table is seeded with the
-six departments from PRD §7/A5 and tested against the schema enum;
-`incidents.priority_score`, `priority_band`, `factor_breakdown`, `department_id`,
-`cc_departments` and `sla_due_at` columns exist and are indexed.
-
-### P4 — Sentinel hardening
+### P4 — Sentinel hardening — NEXT UP
 
 **PRD milestone M3.** Acceptance: a deliberately broken agent build is blocked by CI.
 
@@ -313,8 +332,8 @@ Most credential-dependent phase.
 | P0 | M0 — Skeleton (part) | Complete | `0625ff9` |
 | P1 | M0 — Skeleton (complete) | Complete | `23db8c0` |
 | P2 | M1 — Core path | Complete | `0ba6679` |
-| P3 | M2 — Decisioning | Next | — |
-| P4 | M3 — Sentinel | Remaining | — |
+| P3 | M2 — Decisioning | Complete | `pending commit` |
+| P4 | M3 — Sentinel | Next | — |
 | P5 | M4 — Pattern + closure | Remaining | — |
 | P6 | M5 — Judge + evidence | Remaining | — |
 | P7 | M6 — Demo polish | Remaining | — |
@@ -323,7 +342,7 @@ Most credential-dependent phase.
 
 ## Work that can run in parallel
 
-Five lanes that do not touch the files P3 will change. Each names the paths it
+Five lanes that do not touch the files P4 will change. Each names the paths it
 owns, so two people can work without stepping on each other.
 
 ### Lane 1 — Citizen PWA and dashboards
@@ -331,8 +350,8 @@ owns, so two people can work without stepping on each other.
 
 The largest parallel piece of remaining work and the one a judge sees first.
 `web/` does not exist, so there is nothing to collide with. Build against the
-endpoints that are already live and stub `/v1/incidents` against the shape in
-PRD §12 until P3 lands it.
+endpoints that are already live, including `GET /v1/incidents` and
+`GET /v1/incidents/{id}` (P3, landed).
 
 *No conflict with any Python work. Can start immediately.*
 
@@ -383,8 +402,8 @@ question 1 belongs here.
 
 | Hazard | Why it bites | How to avoid it |
 |---|---|---|
-| `db/migrations/` | Two people both write `0003_*.sql`; the runner's checksum guard rejects the loser | Claim the next number before writing the file. **P3 owns `0003`.** |
-| `api/main.py` | One module holds every route; P3 and P5 both add endpoints | Split into `api/routes/` before two people touch it, or sequence the edits |
+| `db/migrations/` | Two people both write the same numbered file; the runner's checksum guard rejects the loser | Claim the next number before writing the file. P3 used `0003`. **P4 owns `0004`.** |
+| `api/main.py` | One module holds every route; P3 added `/v1/incidents`, P5 will add more | Split into `api/routes/` before two people touch it, or sequence the edits |
 | `agents/base.py` | P4's verdict gate changes the handler path every agent runs through | Land the gate on its own branch and rebase agent work onto it |
 | `common/topics.py` + `schemas/` | A new topic needs a registry entry, a schema and a factory; tests fail on any one missing | All three in one commit. The README's "Adding a topic" section is the checklist. |
 | `docker-compose.yml` | Every phase appends agent services to the same file | Append only, one service block per agent; conflicts stay trivial |
@@ -403,6 +422,9 @@ question 1 belongs here.
 | No landmark-based location refinement | The landmark is extracted and surfaced; turning it into coordinates needs a geocoder | Unscheduled |
 | Ward polygons are fixtures | Hand-drawn rectangles, not BBMP boundaries | Lane 5 |
 | No media retention policy | Blobs accumulate indefinitely; needs a policy decision the PRD does not make | Undecided |
+| POI reference data is synthetic | `poi` (schools/hospitals) is a small hand-placed fixture, not a real BBMP/OSM extract; A4's proximity factor is a real distance computation against fake points | Unscheduled |
+| Exposure is a ward-level proxy | `ward_road_class` is one dominant class per ward, not a real road-segment network join; a road half a ward away scores the same exposure | Unscheduled |
+| No ward→office jurisdiction table | A5's `office_id` is always `null`; `ward_id` is the only jurisdiction signal routing has | Unscheduled |
 
 ### PRD open questions still unanswered
 
