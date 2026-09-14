@@ -18,7 +18,7 @@ names the PRD uses.
 
 ## Tables added beyond PRD section 10
 
-PRD section 10 is headed "core tables", not "all tables". Four more were needed:
+PRD section 10 is headed "core tables", not "all tables". Six more were needed:
 
 ### `departments`
 
@@ -51,6 +51,25 @@ the publish: a message a consumer can see must already be in the audit trail.
 PRD section 8.2 names `verification_results`, `quarantine` and
 `sentinel_alerts` as the three things Sentinel may write. Only the first was in
 section 10.
+
+### `city_boundary` and `wards` (migration 0002)
+
+A0 must resolve a report to a ward by PostGIS polygon join and reject anything
+outside the city (PRD sections 7/A0 and 8.1). Both need polygons, which PRD
+section 10 does not model because they are reference data rather than pipeline
+state. `reports.ward_id` and `incidents.ward_id` became real foreign keys once
+the table existed.
+
+The bundled geometry is a **simplified fixture, not official BBMP boundaries** —
+axis-aligned rectangles around Koramangala, enough for the ward lookup and the
+M1 scenario. The `source` column records provenance so a fixture can never be
+mistaken for real data. Loaded by `scripts/load_reference_data.py`.
+
+### `intake_attempts` (migration 0002)
+
+PRD section 7/A0 rate-limits per device. Counting rows in `reports` would count
+only submissions that *passed* validation, so a flood of malformed ones would
+sail past the limit. Every attempt lands here, accepted or not.
 
 ### `handler_results`
 
@@ -85,6 +104,7 @@ database too, so they survive a direct write:
 
 ## What is not modelled yet
 
-`reports.embedding`, `incidents.factor_breakdown` and the rest of the columns
-that later agents populate exist and are indexed, but nothing writes them until
-A1–A5 arrive in P2 and P3. They are nullable for that reason.
+`incidents.factor_breakdown`, `priority_score`, `department_id` and `sla_due_at`
+exist and are indexed, but nothing writes them until A4 and A5 arrive in P3.
+`reports.transcript` stays null until an ASR-capable provider is configured.
+They are nullable for that reason.

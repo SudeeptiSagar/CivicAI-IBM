@@ -8,21 +8,23 @@ README covers only how to work in the repo and what actually exists today.
 
 ---
 
-## Status: P1 complete — M0 met
+## Status: P2 complete — M0 and M1 met
 
-> **M0 done when:** "An event flows A0 → echo → Sentinel L1 and is visible in the trace viewer" (PRD §13)
+> **M1 done when:** "20 seeded reports collapse into the expected incidents" (PRD §13)
 
-That now runs on the real stack: Redis Streams, Postgres with PostGIS and
-pgvector, the echo agent, Sentinel, and the trace endpoint.
+The core path runs end to end: a citizen POSTs a report, A0 validates and
+stores it, A1 extracts, A2 deduplicates against PostGIS and pgvector, A3
+consolidates into incidents, and Sentinel verifies every message.
 
 ```
-$ docker compose run --rm api python -m scripts.emit_report
-published reports.ingested trace_id=01a09f9a-a590-79f1-8221-6861855bf0ac
+$ curl -X POST localhost:8000/v1/reports \
+    -F device_hash=citizen-1 -F lat=12.9345 -F lon=77.6101 -F gps_accuracy_m=9 \
+    -F text="Huge pothole outside the school gate, very deep and dangerous"
+{"report_id":"…","trace_id":"…","ward_id":"BLR-151","matched_incident":null}
 
-$ curl localhost:8000/v1/trace/01a09f9a-a590-79f1-8221-6861855bf0ac
-message_count: 2  verdict_count: 2  edges: 1  roots: 1
-  reports.ingested          agent=A0    verdicts=['pass']  runs=['skipped']
-  reports.ingested.skipped  agent=ECHO  verdicts=['pass']
+# four citizens, submitted in parallel, one pothole:
+$ psql -c "select category, report_count, distinct_reporters from incidents"
+ pothole |     4 |      4
 ```
 
 ### What exists
@@ -30,72 +32,87 @@ message_count: 2  verdict_count: 2  edges: 1  roots: 1
 | Component | Status |
 |---|---|
 | `schemas/` — envelope + 15 topic schemas + 3 patterned families | Complete |
-| `common/` — envelope, UUIDv7 ids, schema registry, config, logging, db, message archive | Complete |
-| `bus/` — `Bus` interface, in-memory double, **Redis Streams transport** | Complete |
-| `db/` — migration runner + full schema for PRD §10 (plus 4 documented additions) | Complete |
+| `common/` — envelope, ids, schemas, db, geo, storage, matching, LLM interface | Complete |
+| `bus/` — `Bus` interface, in-memory double, Redis Streams | Complete |
+| `db/` — migration runner + PRD §10 schema + reference geography | Complete |
 | `agents/base.py` — the PRD §7 agent contract, executable | Complete |
-| `agents/echo`, `agents/av_sentinel` — M0 smoke agent, Sentinel **L1** | Complete |
-| `api/` — `/v1/health`, `/v1/health/agents`, `/v1/trace/{id}` | Complete |
-| `docker-compose.yml` — Postgres+PostGIS+pgvector, Redis, MinIO, API, agents | Complete |
-| `tests/` — 348 tests | Passing |
+| **A0 Intake** — validation, EXIF strip, ward join, rate limiting | Complete |
+| **A1 Perception** — extraction + embedding, degrades openly | Complete (text only) |
+| **A2 Dedup** — 4-component scoring over PostGIS + pgvector | Complete |
+| **A3 Synthesis** — consolidation, weighted centroid, adjudication | Consolidation only |
+| `agents/av_sentinel` — Sentinel **L1** | Complete |
+| `api/` — reports, report status, health, trace | Complete |
+| `tests/` — 493 tests | Passing |
 
 ### What does not exist yet
 
-Named explicitly so nothing reads as more finished than it is:
-
-- **No real agents.** A0–A7 are not implemented. The echo agent is a pipeline
-  smoke test that emits a `*.skipped` event; it has no business logic, by design.
-- **No LLM provider.** `common/llm/provider.py` does not exist and no watsonx
-  credentials are configured. No agent fabricates reasoning output in its
-  absence.
-- **Sentinel runs L1 only**, and **does not yet gate consumers** — see
-  [Known limitations](#known-limitations).
-- **No object-store client.** MinIO is provisioned and its bucket created, but
-  nothing writes blobs until A0 handles media in P2.
-- **No write endpoints.** `POST /v1/reports` and the resolution endpoints belong
-  to the agents that own those tables (A0 in P2, A6 in P5).
-- **No frontend.** The trace viewer is the JSON endpoint; the UI is P7.
+- **No real model.** No watsonx credentials (PRD open question 2). A
+  deterministic lexical baseline stands in — see below.
+- **No ASR, no vision.** Audio and photos are stored but never read.
+- **A3 pattern mode / SuperIncidents** — P5.
+- **A4 Prioritization, A5 Routing, A6 Resolution, A7 Evidence** — P3 and P5.
+- **Sentinel L2/L3/L4**, and Sentinel does not yet gate consumers — P4.
+- **No frontend.** The trace viewer is a JSON endpoint; the UI is P7.
 
 ---
 
 ## Known limitations
 
-**Sentinel verifies alongside consumers, not in front of them.** PRD §8 calls
-for downstream agents to act only on events carrying a valid verdict. Today
-Sentinel and each agent hold independent consumer groups on the same topic, so
-an agent can begin work on a message Sentinel is about to quarantine. The
-effective behaviour is `permissive` with a zero deadline regardless of
-`CIVICAI_SENTINEL_MODE`, and `/v1/health/agents` reports this honestly as
-`sentinel_gate_enforced: false`. Closing it is P4 (M3), whose acceptance
-criterion requires a real gate. Details in [`docs/sentinel.md`](docs/sentinel.md).
+Three things are true of this build that a reader could otherwise mistake.
+
+**1. The reasoning provider is not a model.** `common/llm/heuristic.py` is a
+deterministic lexical baseline: keyword matching plus a hashed character-n-gram
+vector. It exists so the core path is runnable and measurable without
+credentials, and it caps its own confidence at 0.55. Its embedding is *lexical,
+not semantic*, which systematically depresses A2's semantic component and is the
+single clearest thing a real provider would improve. Details and measured
+numbers in [`docs/perception-and-dedup.md`](docs/perception-and-dedup.md).
+
+**2. Faces and plates are not blurred.** PRD §15 asks for it; it needs a
+detector this build does not have. EXIF stripping *is* implemented and verified
+against stored bytes, but a photo containing a bystander is stored with that
+person legible. This is an open PII gap, not an oversight —
+[`docs/media-handling.md`](docs/media-handling.md).
+
+**3. Sentinel verifies alongside consumers, not in front of them.** An agent
+can begin work on a message Sentinel is about to quarantine. `/v1/health/agents`
+reports this as `sentinel_gate_enforced: false` rather than letting the
+configured mode imply a guarantee — [`docs/sentinel.md`](docs/sentinel.md).
 
 ---
 
 ## Running it
 
-Needs Docker. The stack is Postgres 16 + PostGIS + pgvector (one custom image —
-no published image carries both), Redis, and MinIO.
+Needs Docker. Postgres 16 + PostGIS + pgvector (one custom image — no published
+image carries both), Redis, MinIO.
 
 ```bash
 cp .env.example .env
 
 docker compose up -d postgres redis minio minio-init
-docker compose run --rm migrate              # apply migrations
-docker compose up -d api agent-sentinel agent-echo
+docker compose run --rm migrate            # schema
+docker compose run --rm load-reference     # city and ward polygons
+docker compose up -d api agent-sentinel agent-perception agent-dedup agent-synthesis
 
 curl localhost:8000/v1/health
 ```
 
-Then push an event through:
+Submit a report, then follow it:
 
 ```bash
-docker compose run --rm api python -m scripts.emit_report --text "pothole by the school"
-curl "localhost:8000/v1/trace/<trace_id>"
+curl -X POST localhost:8000/v1/reports \
+  -F device_hash=me -F lat=12.9345 -F lon=77.6101 -F gps_accuracy_m=9 \
+  -F text="Huge pothole outside the school gate"
+
+curl localhost:8000/v1/reports/<report_id>   # status + "N others reported this"
+curl localhost:8000/v1/trace/<trace_id>      # every agent decision + verdicts
 ```
 
-`scripts/emit_report.py` is a development harness standing in for A0 until P2.
-It mints a well-formed envelope and nothing more — no media handling, no EXIF
-stripping, no reverse geocoding, no rate limiting.
+Or run the M1 scenario — 20 reports, 11 expected incidents:
+
+```bash
+docker compose run --rm api python -m scripts.seed_m1 --drain
+```
 
 Tear down with `docker compose down -v`.
 
@@ -103,15 +120,12 @@ Tear down with `docker compose down -v`.
 
 ## Developing
 
-Requires **Python 3.13** (3.14 is not supported — several dependencies have no
-wheels for it).
+Requires **Python 3.13** (3.14 is not supported — dependency wheels).
 
 ```bash
 py -V:3.13 -m venv .venv                          # Windows
 python3.13 -m venv .venv                          # macOS / Linux
-
-.venv/Scripts/python -m pip install -e ".[dev]"   # Windows
-.venv/bin/python -m pip install -e ".[dev]"       # macOS / Linux
+.venv/Scripts/python -m pip install -e ".[dev]"
 ```
 
 ### Verify
@@ -125,52 +139,54 @@ mypy
 pytest
 ```
 
-Integration tests **skip** when Postgres and Redis are unreachable, so `pytest`
-stays green with nothing running — and a skip is reported as a skip, never as a
-pass. With the stack up they run against a separate `civicai_test` database and
-Redis index 15, so a test run can never touch your dev data.
+Integration tests **skip** when the stack is down, so `pytest` stays green with
+nothing running — and a skip is reported as a skip, never as a pass. With the
+stack up they run against a separate `civicai_test` database, Redis index 15,
+and a `tests/` key prefix in the bucket, so they never touch dev data.
 
 ### Layout
 
 ```
 schemas/    JSON Schema per topic — the contract source of truth (PRD §11)
-common/     envelope, ids, schema registry, config, logging, db, message archive
+common/     envelope, ids, db, geo, storage, matching, llm/ (provider interface)
 bus/        transport abstraction: Redis Streams, plus an in-memory double
 db/         migrations and the runner
-agents/     base.py is the PRD §7 contract; av_sentinel verifies all the others
-api/        FastAPI read surface
-scripts/    development harnesses
+agents/     base.py is the PRD §7 contract; a0..a3 and av_sentinel
+api/        FastAPI
+data/       reference geography and the M1 seed scenario
+scripts/    migrations, reference loading, seeding harnesses
 tests/      factories.py holds a valid example message for every topic
 ```
 
-Further reading: [`docs/message-contracts.md`](docs/message-contracts.md),
-[`docs/data-model.md`](docs/data-model.md), [`docs/sentinel.md`](docs/sentinel.md).
+Further reading: [`docs/perception-and-dedup.md`](docs/perception-and-dedup.md),
+[`docs/message-contracts.md`](docs/message-contracts.md),
+[`docs/data-model.md`](docs/data-model.md),
+[`docs/sentinel.md`](docs/sentinel.md),
+[`docs/media-handling.md`](docs/media-handling.md).
 
 ---
 
-## The three rules worth knowing before you write an agent
+## The four rules worth knowing before you write an agent
 
 **Every message carries a trace.** `trace_id` is minted once by A0 and
-propagated unchanged downstream, so any incident can be replayed back to the
-original citizen submission. `causation_id` points at the message that caused
-this one, which is what rebuilds the decision DAG. `Envelope.originate()` and
-`parent.derive()` handle both for you.
+propagated unchanged; `causation_id` points at the message that caused this one.
+`Envelope.originate()` and `parent.derive()` handle both.
 
-**Delivery is at-least-once, so handlers must be idempotent.** The bus will
-redeliver. The runtime keys on `envelope.idempotency_key()` and records the
-outcome in `handler_results`, making a repeat a no-op that returns the prior
-result (PRD §9.4).
+**Delivery is at-least-once, so handlers must be idempotent.** The runtime keys
+on `envelope.idempotency_key()` and records the outcome in `handler_results`,
+making a repeat a no-op returning the prior result (PRD §9.4).
 
 **Whoever publishes, archives.** `common.messagelog.archive()` before
-`bus.publish()`, always in that order — a message a consumer can see must
-already be in the audit trail. `Agent.emit()` does this for you; only reach for
-`bus.publish()` directly if you have a reason.
+`bus.publish()`, always in that order. `Agent.emit()` does it for you.
+
+**Never invent what you could not read.** If a modality has no provider, record
+the gap, lower the confidence and say so — or raise `SkipSignal`. An agent that
+emits a plausible default is indistinguishable from one that actually looked.
 
 ## Writing an agent
 
 Subclass `Agent` and implement `handle()`. The runtime gives you consumer
-groups, idempotency, the retry budget, deadlettering, archiving and run
-telemetry.
+groups, idempotency, the retry budget, deadlettering, archiving and telemetry.
 
 ```python
 class PerceptionAgent(Agent):
@@ -179,8 +195,8 @@ class PerceptionAgent(Agent):
     input_topic = "reports.ingested"
 
     def handle(self, envelope: Envelope) -> list[Envelope]:
-        if not envelope.payload["has_photo"] and not envelope.payload["raw_text"]:
-            raise SkipSignal("no_media_and_no_text", "nothing to extract")
+        if not envelope.payload["raw_text"]:
+            raise SkipSignal("no_readable_modality", "nothing to extract")
 
         return [
             envelope.derive(
@@ -192,11 +208,6 @@ class PerceptionAgent(Agent):
             )
         ]
 ```
-
-Raise `SkipSignal` when there is genuinely nothing to produce — it emits a
-`*.skipped` event carrying the reason, which is the honest alternative to
-inventing output. Any other exception is retried three times with backoff, then
-deadlettered.
 
 ## Adding a topic
 

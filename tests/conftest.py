@@ -41,8 +41,23 @@ os.environ["CIVICAI_DATABASE_URL"] = _TEST_DB_URL
 os.environ["CIVICAI_REDIS_URL"] = _TEST_REDIS_URL
 os.environ.setdefault("CIVICAI_ENV", "ci")
 
+# Object store: the compose MinIO, with its dev credentials. Media tests use a
+# key prefix of their own so they never collide with stored report media.
+os.environ.setdefault("CIVICAI_S3_ENDPOINT", "http://localhost:9000")
+os.environ.setdefault("CIVICAI_S3_BUCKET", "civicai-media")
+os.environ.setdefault("CIVICAI_S3_ACCESS_KEY", "civicai")
+os.environ.setdefault("CIVICAI_S3_SECRET_KEY", "civicai-dev-secret")
+
 # Tables the pipeline writes. Truncated between integration tests.
+#
+# `intake_attempts` matters more than it looks: leaving it behind lets A0's
+# per-device rate limiter carry state across tests, and a later test fails with
+# a rate-limit rejection that has nothing to do with what it was checking.
+#
+# Reference geography (`wards`, `city_boundary`) and `departments` are NOT here:
+# they are seeded data, not test output.
 _MUTABLE_TABLES = (
+    "intake_attempts",
     "handler_results",
     "quarantine",
     "verification_results",
@@ -73,11 +88,18 @@ def redis_available() -> bool:
     return _reachable("localhost", 6379)
 
 
+def minio_available() -> bool:
+    return _reachable("localhost", 9000)
+
+
 requires_postgres = pytest.mark.skipif(
     not postgres_available(), reason="Postgres not reachable - run `docker compose up -d postgres`"
 )
 requires_redis = pytest.mark.skipif(
     not redis_available(), reason="Redis not reachable - run `docker compose up -d redis`"
+)
+requires_minio = pytest.mark.skipif(
+    not minio_available(), reason="MinIO not reachable - run `docker compose up -d minio`"
 )
 
 

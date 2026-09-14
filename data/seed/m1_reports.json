@@ -1,0 +1,199 @@
+{
+  "_about": "M1 seed scenario (PRD section 13): 20 synthetic Bengaluru reports that must collapse into the expected incidents. Coordinates sit inside the simplified ward fixtures in data/reference/bengaluru.geojson. Times are relative offsets in hours from the run start, so the scenario is reproducible on any day.",
+  "_expected": "See expected_incidents below. The dedup path is scored on this in tests/test_pipeline_m1.py.",
+  "_language_note": "All English. PRD section 5 expects Kannada and Hindi submissions; the lexical baseline behind common.llm cannot classify them, which is PRD open question 3. Those cases are deliberately absent rather than represented by text the pipeline would silently mishandle.",
+
+  "reports": [
+    {
+      "id": "pothole-school-1",
+      "cluster": "pothole_school_gate",
+      "device": "device-a1",
+      "hours_ago": 30,
+      "lat": 12.9345, "lon": 77.6101, "accuracy_m": 8,
+      "text": "Huge pothole outside the school gate, very deep and dangerous"
+    },
+    {
+      "id": "pothole-school-2",
+      "cluster": "pothole_school_gate",
+      "device": "device-a2",
+      "hours_ago": 26,
+      "lat": 12.9346, "lon": 77.6102, "accuracy_m": 12,
+      "text": "Deep pothole near the school gate, autos are swerving around it"
+    },
+    {
+      "id": "pothole-school-3",
+      "cluster": "pothole_school_gate",
+      "device": "device-a3",
+      "hours_ago": 20,
+      "lat": 12.93445, "lon": 77.61005, "accuracy_m": 6,
+      "text": "Dangerous pothole at the school gate, a child nearly fell in"
+    },
+    {
+      "id": "pothole-school-4",
+      "cluster": "pothole_school_gate",
+      "device": "device-a4",
+      "hours_ago": 5,
+      "lat": 12.93452, "lon": 77.61014, "accuracy_m": 10,
+      "text": "Pothole outside the school gate is still not fixed after weeks"
+    },
+
+    {
+      "id": "waterlog-junction-1",
+      "cluster": "waterlogging_junction",
+      "device": "device-b1",
+      "hours_ago": 14,
+      "lat": 12.9368, "lon": 77.6155, "accuracy_m": 9,
+      "text": "Waterlogging at the junction, knee deep water after the rain"
+    },
+    {
+      "id": "waterlog-junction-2",
+      "cluster": "waterlogging_junction",
+      "device": "device-b2",
+      "hours_ago": 12,
+      "lat": 12.9369, "lon": 77.6157, "accuracy_m": 15,
+      "text": "Standing water at the junction, knee deep, cannot cross"
+    },
+    {
+      "id": "waterlog-junction-3",
+      "cluster": "waterlogging_junction",
+      "device": "device-b3",
+      "hours_ago": 10,
+      "lat": 12.93665, "lon": 77.61538, "accuracy_m": 7,
+      "text": "Waterlogging near the junction again, water accumulating badly"
+    },
+
+    {
+      "id": "garbage-market-1",
+      "cluster": "garbage_market",
+      "device": "device-c1",
+      "hours_ago": 40,
+      "lat": 12.9282, "lon": 77.6205, "accuracy_m": 11,
+      "text": "Garbage dump near the market has not been cleared for days"
+    },
+    {
+      "id": "garbage-market-2",
+      "cluster": "garbage_market",
+      "device": "device-c2",
+      "hours_ago": 18,
+      "lat": 12.9283, "lon": 77.6207, "accuracy_m": 14,
+      "text": "Garbage piling up near the market, stray dogs everywhere"
+    },
+    {
+      "id": "garbage-market-3",
+      "cluster": "garbage_market",
+      "device": "device-c1",
+      "hours_ago": 3,
+      "lat": 12.92825, "lon": 77.62055, "accuracy_m": 9,
+      "text": "Garbage near the market still not collected, rubbish on the road"
+    },
+
+    {
+      "id": "streetlight-lane-1",
+      "cluster": "streetlight_lane",
+      "device": "device-d1",
+      "hours_ago": 50,
+      "lat": 12.9251, "lon": 77.6088, "accuracy_m": 10,
+      "text": "Street light not working on this lane, completely dark at night"
+    },
+    {
+      "id": "streetlight-lane-2",
+      "cluster": "streetlight_lane",
+      "device": "device-d2",
+      "hours_ago": 22,
+      "lat": 12.92515, "lon": 77.60892, "accuracy_m": 13,
+      "text": "Street light still not working, dark street is unsafe"
+    },
+
+    {
+      "id": "drain-overflow-1",
+      "cluster": "drain_overflow_lane",
+      "device": "device-e1",
+      "hours_ago": 16,
+      "lat": 12.9372, "lon": 77.6162, "accuracy_m": 8,
+      "text": "Drain overflowing onto the road, blocked drain near the junction"
+    },
+    {
+      "id": "drain-overflow-2",
+      "cluster": "drain_overflow_lane",
+      "device": "device-e2",
+      "hours_ago": 11,
+      "lat": 12.93725, "lon": 77.61635, "accuracy_m": 12,
+      "text": "Blocked drain overflowing again near the junction, choked drain"
+    },
+
+    {
+      "id": "pothole-far-1",
+      "cluster": "pothole_indiranagar",
+      "device": "device-f1",
+      "hours_ago": 8,
+      "lat": 12.9705, "lon": 77.6405, "accuracy_m": 9,
+      "text": "Big pothole on the main road here, very deep"
+    },
+
+    {
+      "id": "sewage-1",
+      "cluster": "sewage_block",
+      "device": "device-g1",
+      "hours_ago": 28,
+      "lat": 12.9225, "lon": 77.6182, "accuracy_m": 10,
+      "text": "Sewage smell and foul smell coming from the manhole here"
+    },
+
+    {
+      "id": "tree-1",
+      "cluster": "tree_hazard_park",
+      "device": "device-h1",
+      "hours_ago": 6,
+      "lat": 12.9338, "lon": 77.6068, "accuracy_m": 7,
+      "text": "Tree branch fell on the footpath after the storm"
+    },
+
+    {
+      "id": "water-supply-1",
+      "cluster": "water_supply_burst",
+      "device": "device-i1",
+      "hours_ago": 4,
+      "lat": 12.9296, "lon": 77.6241, "accuracy_m": 11,
+      "text": "Pipeline burst on the road, water leaking continuously"
+    },
+
+    {
+      "id": "stray-1",
+      "cluster": "stray_dogs",
+      "device": "device-j1",
+      "hours_ago": 9,
+      "lat": 12.9262, "lon": 77.6112, "accuracy_m": 15,
+      "text": "Stray dog menace near the park, children are scared"
+    },
+
+    {
+      "id": "traffic-1",
+      "cluster": "traffic_obstruction",
+      "device": "device-k1",
+      "hours_ago": 2,
+      "lat": 12.9319, "lon": 77.6224, "accuracy_m": 12,
+      "text": "Illegal parking blocking the road completely, traffic jam"
+    }
+  ],
+
+  "expected_incidents": [
+    { "cluster": "pothole_school_gate",  "category": "pothole",             "reports": 4, "distinct_reporters": 4 },
+    { "cluster": "waterlogging_junction","category": "waterlogging",        "reports": 3, "distinct_reporters": 3 },
+    { "cluster": "garbage_market",       "category": "garbage",             "reports": 3, "distinct_reporters": 2 },
+    { "cluster": "streetlight_lane",     "category": "streetlight",         "reports": 2, "distinct_reporters": 2 },
+    { "cluster": "drain_overflow_lane",  "category": "drain_overflow",      "reports": 2, "distinct_reporters": 2 },
+    { "cluster": "pothole_indiranagar",  "category": "pothole",             "reports": 1, "distinct_reporters": 1 },
+    { "cluster": "sewage_block",         "category": "sewage",              "reports": 1, "distinct_reporters": 1 },
+    { "cluster": "tree_hazard_park",     "category": "tree_hazard",         "reports": 1, "distinct_reporters": 1 },
+    { "cluster": "water_supply_burst",   "category": "water_supply",        "reports": 1, "distinct_reporters": 1 },
+    { "cluster": "stray_dogs",           "category": "stray_animals",       "reports": 1, "distinct_reporters": 1 },
+    { "cluster": "traffic_obstruction",  "category": "traffic_obstruction", "reports": 1, "distinct_reporters": 1 }
+  ],
+
+  "_notes": [
+    "pothole_indiranagar is a separate incident from pothole_school_gate despite sharing a category: it is ~4 km away, far outside the 75 m pothole radius. It guards against over-merging on category alone.",
+    "drain_overflow_lane sits ~70 m from waterlogging_junction and within its time window. They must stay separate incidents because A2 never merges across categories (PRD 7/A2); linking them is A3 pattern mode's job in P5, as a SuperIncident.",
+    "garbage_market has 3 reports from 2 devices, so distinct_reporters must be 2, not 3. This is the device-deduplication the corroboration score depends on (PRD 7/A4).",
+    "Compression ratio for this set is 20 reports / 11 incidents = 1.8x, below the >= 3x target in PRD section 14. That target assumes real duplicate density; this fixture deliberately includes singletons to test that A2 does NOT over-merge."
+  ]
+}

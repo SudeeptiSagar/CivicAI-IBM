@@ -104,6 +104,30 @@ def verdict_mix(window: dt.timedelta = dt.timedelta(hours=24)) -> dict[str, dict
         return mix
 
 
+def report(report_id: str) -> dict[str, Any] | None:
+    """One report with its incident context, or None.
+
+    The incident join is what lets a citizen be told "17 others reported this;
+    it is incident #1042" instead of being handed an orphan ticket
+    (PRD section 5).
+    """
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT r.report_id, r.trace_id, r.status, r.created_at, r.ward_id,
+                   r.category, r.severity_raw, r.summary, r.incident_id,
+                   i.report_count AS incident_report_count,
+                   i.title        AS incident_title
+            FROM reports r
+            LEFT JOIN incidents i ON i.incident_id = r.incident_id
+            WHERE r.report_id = %s
+            """,
+            (report_id,),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
+
+
 def quarantine_depth() -> int:
     """Envelopes awaiting human triage."""
     with connect() as conn, conn.cursor() as cur:

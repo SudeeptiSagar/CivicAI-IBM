@@ -273,7 +273,11 @@ def test_health_reports_dependencies(client: TestClient, clean_db: None) -> None
     body = client.get("/v1/health").json()
 
     assert body["status"] == "ok"
-    assert body["dependencies"] == {"postgres": True, "redis": True}
+    assert body["dependencies"] == {
+        "postgres": True,
+        "redis": True,
+        "object_store": True,
+    }
 
 
 def test_agent_health_reports_activity(pipeline: dict[str, Any], client: TestClient) -> None:

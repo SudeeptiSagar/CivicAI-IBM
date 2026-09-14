@@ -1,0 +1,132 @@
+{
+  "type": "FeatureCollection",
+  "name": "bengaluru-simplified",
+  "_disclaimer": "SIMPLIFIED FIXTURE GEOMETRY - NOT OFFICIAL BBMP BOUNDARIES. These are axis-aligned rectangles approximating a handful of wards around Koramangala, sufficient for the A0 ward lookup, the city-boundary rejection rule and the seeded M1 scenario. Replace with real BBMP ward boundaries before any claim about real coverage. PRD open question 1.",
+  "_source": "hand-drawn approximation, 2026-09-14",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "city",
+        "city_id": "BLR",
+        "name": "Bengaluru",
+        "source": "simplified-fixture"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.46, 12.83],
+          [77.78, 12.83],
+          [77.78, 13.14],
+          [77.46, 13.14],
+          [77.46, 12.83]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "ward",
+        "ward_id": "BLR-151",
+        "name": "Koramangala 5th Block",
+        "zone": "Bommanahalli",
+        "city_id": "BLR",
+        "source": "simplified-fixture"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.600, 12.930],
+          [77.615, 12.930],
+          [77.615, 12.940],
+          [77.600, 12.940],
+          [77.600, 12.930]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "ward",
+        "ward_id": "BLR-152",
+        "name": "Koramangala 6th Block",
+        "zone": "Bommanahalli",
+        "city_id": "BLR",
+        "source": "simplified-fixture"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.615, 12.930],
+          [77.630, 12.930],
+          [77.630, 12.940],
+          [77.615, 12.940],
+          [77.615, 12.930]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "ward",
+        "ward_id": "BLR-153",
+        "name": "Koramangala 4th Block",
+        "zone": "Bommanahalli",
+        "city_id": "BLR",
+        "source": "simplified-fixture"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.600, 12.920],
+          [77.615, 12.920],
+          [77.615, 12.930],
+          [77.600, 12.930],
+          [77.600, 12.920]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "ward",
+        "ward_id": "BLR-154",
+        "name": "Ejipura",
+        "zone": "Bommanahalli",
+        "city_id": "BLR",
+        "source": "simplified-fixture"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.615, 12.920],
+          [77.630, 12.920],
+          [77.630, 12.930],
+          [77.615, 12.930],
+          [77.615, 12.920]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "ward",
+        "ward_id": "BLR-160",
+        "name": "Indiranagar",
+        "zone": "East",
+        "city_id": "BLR",
+        "source": "simplified-fixture"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [77.630, 12.960],
+          [77.650, 12.960],
+          [77.650, 12.980],
+          [77.630, 12.980],
+          [77.630, 12.960]
+        ]]
+      }
+    }
+  ]
+}

@@ -24,6 +24,10 @@ x-app: &app
     CIVICAI_S3_ACCESS_KEY: civicai
     CIVICAI_S3_SECRET_KEY: civicai-dev-secret
     CIVICAI_SENTINEL_MODE: ${CIVICAI_SENTINEL_MODE:-strict}
+    # 'heuristic' is the deterministic lexical baseline, NOT a model. It is the
+    # default only because no watsonx credentials exist yet (PRD open question
+    # 2); see common/llm/heuristic.py for exactly what it can and cannot do.
+    CIVICAI_LLM_PROVIDER: ${CIVICAI_LLM_PROVIDER:-heuristic}
   volumes:
     # Source is baked into the image; this mount is a dev convenience so a code
     # change does not need a rebuild. Remove it for a production-shaped run.
@@ -115,6 +119,16 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # One-shot: loads city and ward polygons. A0 cannot resolve a ward or reject
+  # an out-of-city report without these. Run after migrate.
+  load-reference:
+    <<: *app
+    command: ["python", "-m", "scripts.load_reference_data"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     <<: *app
     command:
@@ -137,6 +151,31 @@ services:
       <<: *app-env
       CIVICAI_AGENT_CONSUMER: sentinel-1
 
+  # The core path (PRD section 13, M1). A0 is not here: it is the trace
+  # boundary, driven by POST /v1/reports in the api service.
+  agent-perception:
+    <<: *app
+    command: ["python", "-m", "agents.a1_perception"]
+    environment:
+      <<: *app-env
+      CIVICAI_AGENT_CONSUMER: a1-1
+
+  agent-dedup:
+    <<: *app
+    command: ["python", "-m", "agents.a2_dedup"]
+    environment:
+      <<: *app-env
+      CIVICAI_AGENT_CONSUMER: a2-1
+
+  agent-synthesis:
+    <<: *app
+    command: ["python", "-m", "agents.a3_synthesis"]
+    environment:
+      <<: *app-env
+      CIVICAI_AGENT_CONSUMER: a3-1
+
+  # M0's pipeline smoke test. Consumes reports.ingested alongside A1 and emits
+  # only a *.skipped event, so it cannot interfere with the core path.
   agent-echo:
     <<: *app
     command: ["python", "-m", "agents.echo"]
