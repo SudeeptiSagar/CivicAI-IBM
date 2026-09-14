@@ -111,7 +111,9 @@ def test_verdict_is_published(sentinel: Sentinel, memory_bus: InMemoryBus) -> No
     _publish(memory_bus, envelope_for(TOPIC))
     sentinel.run_once()
 
-    assert memory_bus.length("verification.results") == 1
+    # Two verdicts for reports.ingested since P4: L1 (structural), then L2
+    # (A0 invariants — reports.ingested has rules, see layers/invariants.py).
+    assert memory_bus.length("verification.results") == 2
 
 
 def test_published_verdict_is_itself_schema_valid(

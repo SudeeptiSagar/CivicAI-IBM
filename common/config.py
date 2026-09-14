@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     # Sentinel (PRD section 8.3)
     sentinel_mode: SentinelMode = "strict"
     sentinel_deadline_ms: int = Field(default=2000, gt=0)
+    #: Whether `agents.base.Agent` waits for a Sentinel verdict before calling
+    #: `handle()` (the "verdict gate", P4). Defaults to False so every existing
+    #: test and deployment keeps its current behaviour — Sentinel verifying
+    #: alongside consumers, not in front of them — unless explicitly turned on.
+    #: See `common/verdict_gate.py` and `docs/sentinel.md`.
+    sentinel_gate_enabled: bool = False
+    #: How often the gate polls for a verdict while waiting, in milliseconds.
+    #: Bounded well below the 2s deadline so the gate never busy-polls the bus
+    #: or the database; it is a plain sleep loop, not a blocking read.
+    sentinel_gate_poll_ms: int = Field(default=50, gt=0)
 
     # Bus (PRD section 9.1)
     bus_backend: BusBackend = "memory"
